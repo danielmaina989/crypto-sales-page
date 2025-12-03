@@ -41,7 +41,47 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
+# Start Redis server first if not running
+
+```bash
+redis-server
+```
+
+# Start Celery worker
+
+Run these from the project root (where `manage.py` lives). Use the actual Celery app module paths that exist in the repo:
+
+```bash
+# Full app path (common pattern if Celery instance is named `app` in core/celery.py)
+celery -A core.celery.app worker --loglevel=info
+
+# Shorter form if the app variable name is `app` in core/celery.py
+celery -A core.celery worker -l info
+```
+
+# Start periodic tasks (beat) if using scheduled checks
+
+```bash
+celery -A core.celery.app beat -l info
+```
+
 ---
+Start the Required Services
+Terminal 1 — Django
+python manage.py runserver
+
+Terminal 2 — Redis
+redis-server
+
+
+(You already have Redis running.)
+
+Terminal 3 — Celery Worker
+celery -A core worker -l info
+
+Terminal 4 — Ngrok (for callbacks)
+ngrok http 8000
+
 
 ### **2. Install Dependencies**
 
@@ -317,11 +357,42 @@ Locally without Docker, to run a worker:
 # ensure you have redis running locally
 export CELERY_BROKER_URL=redis://localhost:6379/0
 export CELERY_RESULT_BACKEND=$CELERY_BROKER_URL
-# start worker
-celery -A core.celery.app worker --loglevel=info
+# start worker (use the Celery app module that exports `app`)
+celery -A core.celery worker -l info
 ```
 
-Notes:
-- `core/celery.py` contains a lightweight Celery factory; Celery is optional. If Celery is not installed the project still works, and `payments.tasks.poll_payment_status` is a synchronous fallback.
+Common mistake: specifying the wrong module in `-A` causes "Unable to load celery application" (for example `-A crypto_sales_page` will fail if no module named `crypto_sales_page` exposes a Celery instance). If you see that error, point `-A` at `core.celery` (the project Celery app) or the module where your Celery `app` lives.
+
+---
+
+## Required .env variables (local development)
+
+This project expects a `.env` file at the project root for local development. These variables are required for MPESA integration and running the site locally. Do NOT commit `.env` into source control — it's already added to `.gitignore`.
+
+Provide values in your local `.env`. Example (use real values only locally):
+
+```
+# Django
+SECRET_KEY=your-secret-key
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=https://example.ngrok-free.dev
+
+# DB (default: SQLite)
+DATABASE_URL=sqlite:///db.sqlite3
+
+# MPESA Sandbox (placeholders) - these values are required for MPESA calls
+MPESA_CONSUMER_KEY=YOUR_MPESA_CONSUMER_KEY
+MPESA_CONSUMER_SECRET=YOUR_MPESA_CONSUMER_SECRET
+MPESA_SHORTCODE=174379
+MPESA_PASSKEY=YOUR_MPESA_PASSKEY
+MPESA_CALLBACK_URL=https://your-ngrok-domain/payments/callback/
+MPESA_ENV=sandbox
+
+# Redis / Celery (optional)
+REDIS_URL=redis://127.0.0.1:6379/0
+```
+
+If you need to share a template, create `.env.example` with placeholder values and commit that instead of `.env`.
 
 ---

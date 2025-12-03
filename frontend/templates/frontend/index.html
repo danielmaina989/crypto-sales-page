@@ -86,26 +86,39 @@
   })
 
   $('#modal-pay').addEventListener('click', function(){
+    const payBtn = $('#modal-pay')
     const phone = $('#modal-phone').value.trim()
     const amount = $('#modal-amount').value.trim()
     if(!phone || !amount){
       $('#modal-status').textContent = 'Phone and amount are required.'
       return
     }
+    payBtn.disabled = true
     $('#modal-status').textContent = 'Initiating payment...'
 
     fetch('/payments/initiate/', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({phone_number: phone, amount: amount, account_ref: selectedCoin, description: selectedCoin + ' purchase'})
-    }).then(r=>r.json()).then(function(data){
+    }).then(function(r){
+      if(!r.ok){
+        return r.json().catch(function(){
+          throw new Error('Server error: ' + r.status)
+        }).then(function(err){
+          throw new Error(err.message || err.error || 'Server error')
+        })
+      }
+      return r.json()
+    }).then(function(data){
       if(!data.success){
         $('#modal-status').textContent = 'Failed to initiate: ' + (data.message || data.error || JSON.stringify(data))
+        payBtn.disabled = false
         return
       }
       const checkout = data.checkout_request_id || data.checkoutRequestID || data.raw_response && data.raw_response.CheckoutRequestID
       if(!checkout){
         $('#modal-status').textContent = 'No checkout id returned; contact support.'
+        payBtn.disabled = false
         return
       }
 
@@ -124,20 +137,23 @@
               setTimeout(()=>{ $('#payment-modal').style.display='none' }, 2000)
             } else if(s.success && s.status === 'failed'){
               $('#modal-status').textContent = 'Payment failed: ' + (s.error || 'Unknown')
+              payBtn.disabled = false
             } else if(attempts < maxAttempts){
               setTimeout(poll, 3000)
             } else {
               $('#modal-status').textContent = 'Payment is taking longer than expected. Please check later.'
+              payBtn.disabled = false
             }
           }).catch(function(e){
             if(attempts < maxAttempts) setTimeout(poll, 3000)
-            else $('#modal-status').textContent = 'Network error while checking payment. Try again later.'
+            else { $('#modal-status').textContent = 'Network error while checking payment. Try again later.'; payBtn.disabled = false }
           })
       }
       setTimeout(poll, 2000)
 
     }).catch(function(err){
-      $('#modal-status').textContent = 'Network error initiating payment.'
+      $('#modal-status').textContent = 'Error initiating payment: ' + (err.message || err)
+      payBtn.disabled = false
     })
   })
 
