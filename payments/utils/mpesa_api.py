@@ -1,6 +1,7 @@
 import base64
 from datetime import datetime
 from django.conf import settings
+import os
 
 try:
     import requests
@@ -12,6 +13,11 @@ from .retry import retry
 
 def _base_url():
     return "https://api.safaricom.co.ke" if getattr(settings, 'MPESA_ENV', 'sandbox') == "production" else "https://sandbox.safaricom.co.ke"
+
+
+def _simulate_enabled():
+    # Allow enabling simulation via Django settings or environment variable
+    return getattr(settings, 'MPESA_SIMULATE', False) or os.getenv('MPESA_SIMULATE') in ('1', 'true', 'True')
 
 
 @retry(max_attempts=3, base_delay=0.5)
@@ -33,6 +39,10 @@ def _http_post(url, json=None, headers=None, timeout=20):
 
 
 def get_access_token():
+    # If simulation is enabled, return a dummy token to allow offline testing
+    if _simulate_enabled():
+        return 'SIMULATED_TOKEN'
+
     if requests is None:
         raise RuntimeError("The 'requests' package is required to call MPESA APIs")
 
@@ -50,6 +60,18 @@ def _stk_password(shortcode, passkey, timestamp):
 
 
 def initiate_stk_push(phone_number, amount, account_ref, description):
+    # Development simulation: if enabled, return a fake successful response
+    if _simulate_enabled():
+        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        fake_checkout = f"SIMCHK{ts}"
+        fake_merchant = f"SIMMR{ts}"
+        return {
+            "ResponseCode": "0",
+            "ResponseDescription": "Simulation - STK initiated",
+            "CheckoutRequestID": fake_checkout,
+            "MerchantRequestID": fake_merchant,
+        }
+
     if requests is None:
         raise RuntimeError("The 'requests' package is required to call MPESA APIs")
 
@@ -83,6 +105,11 @@ def query_transaction_status(identifier):
 
     Returns the MPESA API JSON response or raises RuntimeError if requests missing.
     """
+    # Support simulation for query too
+    if _simulate_enabled():
+        # Simulate that pending transactions transition to success after a short time
+        return {"ResultCode": 0, "ResultDesc": "The service request is processed successfully.", "MpesaReceiptNumber": f"SIMREC{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"}
+
     if requests is None:
         raise RuntimeError("The 'requests' package is required to call MPESA APIs")
 
