@@ -22,3 +22,5 @@ accounts.json
 # OS
 .DS_Store
 
+# Local env file (do not commit credentials)
+.env
