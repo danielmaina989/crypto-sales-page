@@ -1,348 +1,271 @@
-# Crypto Sales Page
+# 🚀 Crypto Sales Page
 
-A small Django project that serves a simple frontend for showcasing cryptocurrency information. The project contains a `frontend` Django app with static assets and a template at the root URL.
+A Django-based project that serves a simple frontend for showcasing cryptocurrency information. The project includes a `frontend` app with static assets and a template routed at the root URL.
 
-Tech stack
-- Python 3.10+ / 3.12
-- Django
-- Plain JavaScript/CSS for frontend assets
+---
 
-Why this README
-- Help you get the project running locally quickly
-- Document where static assets and templates live
-- Show common development commands
+## 🧱 Tech Stack
 
-Quickstart (local)
+* **Python** 3.10–3.12
+* **Django**
+* **SQLite** (development)
+* **Plain JavaScript/CSS** for frontend assets
 
-1. Use the included virtual environment (optional)
+---
 
-If you want to use the environment bundled in the repository, activate it:
+## 📌 Why this README Exists
+
+This document helps you:
+
+* Run the project locally
+* Understand the file layout
+* Follow best practices for development
+* Track improvements using a structured roadmap
+
+---
+
+# ⚡ Quickstart (Local Development)
+
+### **1. Activate Virtual Environment**
+
+Use the provided virtualenv:
 
 ```bash
-# activates the existing virtualenv located at `crypto/`
 source crypto/bin/activate
 ```
 
-If you prefer to create a fresh venv:
+**Or create a new one:**
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-2. Install dependencies
+---
 
-If a `requirements.txt` exists, install it; otherwise install Django:
+### **2. Install Dependencies**
 
 ```bash
-# If requirements.txt exists
 pip install -r requirements.txt
+```
 
-# Or, at minimum
+Or minimally:
+
+```bash
 pip install django
 ```
 
-3. Apply migrations and create (optional) superuser
+---
+
+### **3. Run Migrations**
 
 ```bash
 python manage.py migrate
 python manage.py createsuperuser  # optional
 ```
 
-4. Run the dev server
+---
+
+### **4. Start Dev Server**
 
 ```bash
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/ in your browser — the `frontend` app is routed at the root URL.
+Open **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)** in your browser.
 
-Project layout (high level)
-- core/ — Django project settings and URL routing
-- frontend/ — Django app that contains views, templates, and static assets
-  - templates/frontend/index.html
-  - static/frontend/crypto.js, crypto.css, images/
-- db.sqlite3 — default SQLite DB for development (if present)
+---
 
-Common commands
+# 🗂️ Project Structure
+
+```
+core/                 # Project configuration + settings
+frontend/             # Templates, static assets, and views
+  ├── templates/frontend/index.html
+  └── static/frontend/*.js, *.css, images/
+db.sqlite3            # Dev database (optional)
+crypto/               # Optional virtualenv
+```
+
+---
+
+# 🔧 Common Commands
 
 ```bash
-# Run tests
 python manage.py test
-
-# Make migrations
 python manage.py makemigrations
-
-# Collect static files for production
 python manage.py collectstatic
 ```
 
-Notes and tips
-- Keep `SECRET_KEY` out of source control for production; use environment variables for secrets.
-- Set `DEBUG=False` and configure `ALLOWED_HOSTS` for production deployments.
-- The repo includes a `crypto/` directory which looks like a Python virtual environment; you can use it or create a new one.
+---
 
-Contributing
-- Create a branch per feature/fix
-- Add tests for new behaviour
-- Open a pull request describing your change
+# ⚠️ Notes & Best Practices
 
-Repository
-- Remote: https://github.com/danielmaina989/crypto-sales-page.git
-- Default branch: main
-
-License
-- MIT — see the `LICENSE` file for details.
-
-Contact
-- If this is your personal project, add your contact or repo remote URL here.
+* **Never commit secrets.** Use environment variables.
+* Set **DEBUG=False** in production.
+* Configure **ALLOWED_HOSTS** for deployment.
+* Use `.env` for local configuration and `.env.example` for documentation.
 
 ---
 
-# DETAILED TO-DO LIST FOR PROJECT IMPROVEMENT
+# 🤝 Contributing
 
-Below is the actionable, step-by-step to-do list to improve the project. Use this as the canonical checklist inside the repository README to track work.
-
-# ✅ DETAILED TO-DO LIST FOR PROJECT IMPROVEMENT
-
----
-
-## 1. Codebase Cleanup & Structure
-
-### 1.1 Organize project folders
-
-* [x] Create `core/` folder for main business logic
-* [x] Create `payments/` folder for MPESA integration files
-* [x] Create `users/` module for authentication & user management
-* [x] Separate `settings.py` into:
-
-  * [x] `base.py`
-  * [x] `dev.py`
-  * [x] `prod.py`
-
-
-*Notes:*
-- Admin registration added for `payments.Payment` and `users.Profile` (see `payments/admin.py` and `users/admin.py`).
-- Superuser creation helper management command added: `python manage.py createsu` (reads DEV_SUPERUSER_USERNAME, DEV_SUPERUSER_EMAIL, DEV_SUPERUSER_PASSWORD env vars or uses defaults).
-- Migrations: models are present and were used in tests; if you want persistent migrations committed, run `python manage.py makemigrations payments users` and commit the generated files under each app's `migrations/` folder.
-
-### 1.2 Remove unused files
-
-* [ ] Delete old scripts not used
-* [ ] Remove commented-out code
-
-### 1.3 Add environment variable support
-
-* [ ] Create `.env`
-* [ ] Move API keys and passwords from code → .env
-* [ ] Add `.env.example`
+* Use feature branches
+* Write tests for new features
+* Open descriptive pull requests
 
 ---
 
-## 2. MPESA Integration Improvement
+# 🔗 Repository Info
 
-### 2.1 Fix STK push flow
+* Remote: [https://github.com/danielmaina989/crypto-sales-page.git](https://github.com/danielmaina989/crypto-sales-page.git)
+* Default branch: `main`
+* License: **MIT**
 
-* [ ] Add clear logging at each step
-* [ ] Add retry mechanism for failed token or STK requests
-* [ ] Validate response payloads
+---
 
-### 2.2 Implement webhook endpoint
+# 🧭 PROJECT ROADMAP (PRIORITIZED)
 
-* [ ] Create `mpesa/callback/` endpoint
+This is the cleaned-up, GitHub-friendly version of your to-do list based on the recommended project phases.
+
+---
+
+# 🟦 Phase 1 — Foundation (Highest Priority)
+
+## **1. Project Structure & Cleanup**
+
+* [x] Create modular apps: `core/`, `payments/`, `users/`
+* [x] Split settings into:
+
+  * `base.py`
+  * `dev.py`
+  * `prod.py`
+* [ ] Remove unused scripts and files
+* [ ] Delete commented-out code
+* [ ] Add `.env` & `.env.example`
+* [ ] Move secrets (keys/passwords) into `.env`
+
+**Notes:**
+Admin registration for models added.
+Optional helper command exists: `python manage.py createsu`.
+
+---
+
+# 🟩 Phase 2 — Core Backend & MPESA Integration
+
+## **2. MPESA STK Push Improvements**
+
+* [ ] Add detailed logging for token + STK steps
+* [ ] Implement retry logic
+* [ ] Validate API responses
+
+### Webhook
+
+* [ ] Create `/mpesa/callback/` endpoint
 * [ ] Validate callback body
 * [ ] Update payment status in DB
-* [ ] Send user notification after success
+* [ ] Notify user
 
-### 2.3 Add testing mode
+### Testing Mode
 
-* [ ] Create mock data for testing without hitting real API
-* [ ] Build unit tests for:
+* [ ] Mock MPESA responses
+* [ ] Tests for:
 
-  * [ ] token generation
-  * [ ] stk push request
-  * [ ] callback handling
-
----
-
-## 3. Backend API Improvements
-
-### 3.1 Add structured API responses
-
-* [ ] Create a standard JSON formatter
-* [ ] Add error handler middleware
-
-### 3.2 Add Auth Improvements
-
-* [ ] Setup JWT or session-based auth
-* [ ] Add rate limiting to login endpoint
-
-### 3.3 Add background task system
-
-* [ ] Configure Celery + Redis properly
-* [ ] Add periodic tasks
-* [ ] Ensure failed tasks are logged and retried
+  * Token generation
+  * STK requests
+  * Callback processing
 
 ---
 
-## 4. Database Optimization
+# 🟧 Phase 3 — Backend API & Auth
 
-### 4.1 Create missing indexes
+## **3. Backend Enhancements**
 
-* [ ] Add index on user email
-* [ ] Add index on payment reference
-* [ ] Add index on status fields
-
-### 4.2 Add constraints
-
-* [ ] Unique constraint for transaction IDs
-* [ ] Foreign key checks
-
-### 4.3 Design new tables if needed
-
-* [ ] Payment audit table
-* [ ] Logs table
+* [ ] Standard JSON response structure
+* [ ] Global error handler middleware
+* [ ] JWT or session-based authentication
+* [ ] Add rate limiting
+* [ ] Integrate Celery + Redis
+* [ ] Add periodic tasks + retries
 
 ---
 
-## 5. Frontend Cleanup / UI Improvement
+# 🟨 Phase 4 — Database Optimization
 
-### 5.1 Improve UI consistency
-
-* [ ] Define color palette
-* [ ] Standardize fonts
-* [ ] Add reusable button & alert components
-
-### 5.2 Improve forms
-
-* [ ] Add validation feedback
-* [ ] Add loading indicators
-* [ ] Disable submit button during processing
-
-### 5.3 User dashboard
-
-* [ ] Payment status display
-* [ ] Download receipts
-* [ ] Profile settings
+* [ ] Add DB indexes
+* [ ] Transaction ID unique constraint
+* [ ] Add audit tables
+* [ ] Add logs table
 
 ---
 
-## 6. Git / Version Control Improvements
+# 🟪 Phase 5 — Frontend Improvements
 
-### 6.1 Clean up Git history
+* [ ] Define UI theme (colors, fonts)
+* [ ] Create reusable UI components
+* [ ] Improve forms (validation, loading states)
+* [ ] Build user dashboard:
 
-* [ ] Remove large/unnecessary files
-* [ ] Add `.gitignore` rules
-
-### 6.2 Introduce Git Flow
-
-* [ ] Create `dev` branch
-* [ ] Use feature branches per task
-* [ ] Merge using pull requests
+  * Payment history
+  * Download receipts
+  * Profile settings
 
 ---
 
-## 7. Deployment
+# 🟫 Phase 6 — Git & Workflow
 
-### 7.1 Docker setup
+* [ ] Expand `.gitignore`
+* [ ] Clean large/unnecessary files
+* [ ] Add `dev` branch
+* [ ] Use feature branches
+* [ ] Merge using PRs
 
-* [ ] Create Dockerfile
-* [ ] Add docker-compose:
+---
 
-  * [ ] web
-  * [ ] db
-  * [ ] redis
-  * [ ] celery
+# 🟦 Phase 7 — Deployment
 
-### 7.2 Production server
-
+* [ ] Dockerfile
+* [ ] docker-compose (web + db + redis + celery)
 * [ ] Nginx reverse proxy
-* [ ] Gunicorn for backend
-* [ ] SSL setup
-
-### 7.3 Monitoring
-
-* [ ] Add logs using `loguru` or Django logging
-* [ ] Add uptime monitor (UptimeRobot)
-* [ ] Add email alerts for failures
+* [ ] Gunicorn
+* [ ] HTTPS/SSL
+* [ ] Logging + uptime monitoring
 
 ---
 
-## 8. Documentation
+# 🟩 Phase 8 — Documentation
 
-### 8.1 Setup README
-
-* [ ] Setup instructions
-* [ ] Environment config
-* [ ] How to run tests
-
-### 8.2 Create API documentation
-
-* [ ] Postman collection
-* [ ] Swagger / DRF docs
-
-### 8.3 Payment flow diagram
-
-* [ ] Sequence diagram for MPESA STK
+* [ ] Improve setup instructions
+* [ ] Add environment configuration guide
+* [ ] Write API docs (Swagger / Postman)
+* [ ] Add MPESA flow diagram
 
 ---
 
-## 9. Testing
+# 🟧 Phase 9 — Testing Suite
 
-### 9.1 Unit tests
-
-* [ ] Users
-* [ ] Payments
-* [ ] Tasks
-
-### 9.2 Integration tests
-
-* [ ] STK push
-* [ ] Callback
-* [ ] Authentication
-
-### 9.3 Manual test checklist
-
-* [ ] Registration
-* [ ] Login
-* [ ] Payment initiation
-* [ ] Payment confirmation
-* [ ] Error cases
+* [ ] Unit tests (users, payments, tasks)
+* [ ] Integration tests (STK → callback → DB)
+* [ ] Manual test checklist
 
 ---
 
-## Local accounts file (secrets - DO NOT COMMIT)
+# 🔐 Local Accounts File (DO NOT COMMIT)
 
-This project supports a local `accounts.json` file for development-only accounts or service credentials. The repository includes a safe example you can copy:
+Use:
 
-- `accounts.example.json` — checked-in template with placeholder values.
-- `accounts.json` — local file (added to `.gitignore`) where you keep real credentials for local development.
+* `accounts.example.json` → safe template
+* `accounts.json` → your private local secrets (ignored by git)
 
-Quick start
-1. Copy the example:
+Example usage:
 
 ```bash
 cp accounts.example.json accounts.json
-# Edit accounts.json with real local values, DO NOT commit it
 ```
 
-2. Load accounts from Python using the helper:
+Python loader:
 
 ```python
 from core.utils.accounts import load_accounts
 accounts = load_accounts()
-admin = accounts.get('admin')
 ```
-
-Security note
-- `accounts.json` is intentionally ignored by git; never commit real secrets. For production, use environment variables or a secrets manager instead.
-
----
-
-Next steps
-- This README now contains your full checklist. To start work pick one top-level section (for example: `1. Codebase Cleanup & Structure`) and open a new feature branch.
-- If you'd like, I can create issue templates, a GitHub Projects board, or convert each bullet into a tracked issue/PR template.
-
-Notes
-- `requirements.txt` already contains Django pinned to `Django==5.2.9`; pin additional dependencies as you add them.
-- The project already includes a `LICENSE` file at the repository root (MIT). Add your repo remote URL in the Contact section if it differs.
