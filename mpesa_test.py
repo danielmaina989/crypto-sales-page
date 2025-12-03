@@ -1,10 +1,17 @@
 import base64
 import requests
 import time
+import os
+from dotenv import load_dotenv
 
-# --- Sandbox credentials (from your earlier .env) ---
-MPESA_CONSUMER_KEY = "riGjp64odowDOnvadnjyjeiJUmc4eSDtQeclNKNfXCscICpk"
-MPESA_CONSUMER_SECRET = "fXRp0DR8huY76Bsjog15rX2CAcZ27i19dyu3AtYGYzHorvHWIXDJKUqJCqtGAxsn"
+# Load credentials from .env (never hardcode!)
+load_dotenv()
+
+MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
+MPESA_CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
+
+if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+    raise ValueError("MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET must be set in .env")
 
 OAUTH_URL = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
 
