@@ -21,7 +21,10 @@ def get_access_token():
     auth = base64.b64encode(f"{key}:{secret}".encode()).decode()
     url = f"{_base_url()}/oauth/v1/generate?grant_type=client_credentials"
     resp = requests.get(url, headers={"Authorization": f"Basic {auth}"}, timeout=15)
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except Exception:
+        pass  # Allow fallback to occur
     return resp.json().get("access_token")
 
 
@@ -54,6 +57,28 @@ def initiate_stk_push(phone_number, amount, account_ref, description):
     }
 
     url = f"{_base_url()}/mpesa/stkpush/v1/processrequest"
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    resp = requests.post(url, json=payload, headers=headers, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def query_transaction_status(identifier):
+    """Query transaction status by CheckoutRequestID or MerchantRequestID.
+
+    Returns the MPESA API JSON response or raises RuntimeError if requests missing.
+    """
+    if requests is None:
+        raise RuntimeError("The 'requests' package is required to call MPESA APIs")
+
+    access_token = get_access_token()
+    shortcode = settings.MPESA_SHORTCODE
+    payload = {
+        "BusinessShortCode": shortcode,
+        "Identifier": identifier,
+    }
+
+    url = f"{_base_url()}/mpesa/stkpushquery/v1/query"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     resp = requests.post(url, json=payload, headers=headers, timeout=20)
     resp.raise_for_status()

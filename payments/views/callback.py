@@ -4,6 +4,7 @@ from django.utils import timezone
 from payments.models import Payment
 import json
 from payments.utils.errors import MPESA_ERRORS
+from payments.utils.notifications import notify_payment_success
 
 
 @csrf_exempt
@@ -29,7 +30,7 @@ def mpesa_callback(request):
             items = data["Body"]["stkCallback"]["CallbackMetadata"]["Item"]
             # Try to find Receipt (may vary by MPESA)
             for it in items:
-                if it.get('Name', '').lower() in ('mpesa_receipt_number','receiptnumber','transactionreceipt'):
+                if it.get('Name', '').lower() in ('mpesa_receipt_number','receiptnumber','transactionreceipt','mpesareceiptnumber'):
                     payment.mpesa_receipt_number = it.get('Value')
                     break
             else:
@@ -46,5 +47,12 @@ def mpesa_callback(request):
 
     payment.updated_at = timezone.now()
     payment.save()
-    return JsonResponse({"success": True})
 
+    # Send notification for success (best-effort)
+    if payment.status == 'success':
+        try:
+            notify_payment_success(payment, via=('email',))
+        except Exception:
+            pass
+
+    return JsonResponse({"success": True})

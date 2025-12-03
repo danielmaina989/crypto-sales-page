@@ -130,6 +130,33 @@ This is the cleaned-up, GitHub-friendly version of your to-do list based on the 
 
 ---
 
+# Accomplishments to date
+
+The following features and tasks have been implemented and tested in this repository so far:
+
+* [x] Created modular apps: `core/`, `payments/`, `users/`
+* [x] Split settings into `base.py`, `dev.py`, `prod.py`
+* [x] Added `payments.Payment` model with MPESA-related fields and indexes
+* [x] Implemented MPESA utilities: `payments/utils/mpesa_api.py`
+* [x] Added MPESA error mapping: `payments/utils/errors.py`
+* [x] Implemented MPESA callback endpoint: `payments/views/callback.py` (`/payments/mpesa/callback/`)
+* [x] Implemented STK initiation endpoint: `payments/views/initiate.py` (`/payments/initiate/`)
+* [x] Wired payment URLs in `payments/urls.py` (`/payments/status/`, `/payments/webhook/`, `/payments/initiate/`, `/payments/mpesa/callback/`)
+* [x] Added small validators util: `payments/utils/validators.py`
+* [x] Added admin registration for `Payment` and `Profile`
+* [x] Added management command to create a dev superuser: `users/management/commands/createsu.py`
+* [x] Added local accounts workflow: `accounts.example.json` template and `.gitignore` entry for `accounts.json`
+* [x] Created and applied migrations for `payments` and `users` (including safe data migration to make `Payment.user` non-nullable)
+* [x] Wrote unit tests for MPESA callback and STK initiation (tests pass locally): `payments/tests_mpesa.py`
+* [x] Ran full test suite locally — all tests pass
+* [x] Committed all new files and migrations in the local repository
+
+Notes
+- Some roadmap items remain (detailed logging, retry logic, webhook hardening, `.env` support, Celery integration, etc.). See the roadmap below for remaining priorities.
+- `payments/utils/mpesa_api.py` will attempt to use `requests` for real API calls; in environments without `requests` installed the module raises a clear RuntimeError — add `requests` to `requirements.txt` if you plan to call MPESA from this environment.
+
+---
+
 # 🟦 Phase 1 — Foundation (Highest Priority)
 
 ## **1. Project Structure & Cleanup**
@@ -155,25 +182,25 @@ Optional helper command exists: `python manage.py createsu`.
 
 ## **2. MPESA STK Push Improvements**
 
-* [ ] Add detailed logging for token + STK steps
-* [ ] Implement retry logic
-* [ ] Validate API responses
+* [ ] Add detailed logging for token + STK steps  # TODO: add structured logging
+* [ ] Implement retry logic                         # TODO: add retry/backoff for transient errors
+* [ ] Validate API responses                        # TODO: add strict response schema validation
 
 ### Webhook
 
-* [ ] Create `/mpesa/callback/` endpoint
-* [ ] Validate callback body
-* [ ] Update payment status in DB
-* [ ] Notify user
+* [x] Create `/mpesa/callback/` endpoint            # Implemented: `payments/views/callback.py`
+* [x] Validate callback body                        # Implemented: basic JSON parsing and presence checks; returns 400 on invalid JSON
+* [x] Update payment status in DB                   # Implemented: updates `Payment.status`, `mpesa_receipt_number`, `error_*` fields
+* [ ] Notify user                                   # TODO: integrate notifications (email/SMS/push)
 
 ### Testing Mode
 
-* [ ] Mock MPESA responses
-* [ ] Tests for:
+* [x] Mock MPESA responses                         # Implemented in tests using `unittest.mock.patch`
+* [x] Tests for:
 
-  * Token generation
-  * STK requests
-  * Callback processing
+  * [ ] Token generation                            # Not implemented yet
+  * [x] STK requests                                # Implemented: `payments/tests_mpesa.py` mocks `initiate_stk_push`
+  * [x] Callback processing                         # Implemented: `payments/tests_mpesa.py` includes success & failure callback tests
 
 ---
 
