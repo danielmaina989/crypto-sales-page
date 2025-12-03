@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtualenv
+crypto/
+.venv/
+
+# Django
+db.sqlite3
+/staticfiles/
+*.log
+
+# Local accounts file (should not be committed)
+accounts.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+

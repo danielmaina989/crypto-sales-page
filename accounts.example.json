@@ -1,0 +1,12 @@
+{
+  "admin": {
+    "username": "admin",
+    "email": "admin@example.com",
+    "password": "changeme"
+  },
+  "service_account": {
+    "username": "service",
+    "password": "servicepass"
+  }
+}
+
