@@ -1,0 +1,8 @@
+Payment {{ payment.pk }} for {{ payment.amount }} has succeeded.
+
+Receipt: {{ payment.mpesa_receipt_number }}
+User: {{ payment.user.get_full_name }} ({{ payment.user.username }})
+Phone: {{ payment.phone_number }}
+
+Thank you for your payment.
+

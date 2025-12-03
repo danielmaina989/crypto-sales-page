@@ -296,3 +296,32 @@ Python loader:
 from core.utils.accounts import load_accounts
 accounts = load_accounts()
 ```
+
+---
+
+# Running with Celery (optional)
+
+A minimal docker-compose example to run the Django app with a Redis broker and a Celery worker is provided in `docker-compose.celery.yml`.
+
+Quick start (requires Docker):
+
+```bash
+docker-compose -f docker-compose.celery.yml up --build
+```
+
+This brings up Redis, the web app (Gunicorn), and a `worker` service running Celery.
+
+Locally without Docker, to run a worker:
+
+```bash
+# ensure you have redis running locally
+export CELERY_BROKER_URL=redis://localhost:6379/0
+export CELERY_RESULT_BACKEND=$CELERY_BROKER_URL
+# start worker
+celery -A core.celery.app worker --loglevel=info
+```
+
+Notes:
+- `core/celery.py` contains a lightweight Celery factory; Celery is optional. If Celery is not installed the project still works, and `payments.tasks.poll_payment_status` is a synchronous fallback.
+
+---
