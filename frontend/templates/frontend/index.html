@@ -21,21 +21,21 @@
             <button>EXPLORE MORE</button>
         </div>
         <div class="coin-list">
-            <div class="coin">
+            <div class="coin" data-coin="bitcoin">
                 <img src="{% static 'frontend/images/bitcoin.png' %}">
                 <div>
                     <h3>$ <span id="bitcoin"></span></h3>
                     <p>Bitcoin</p>
                 </div>
             </div>
-            <div class="coin">
+            <div class="coin" data-coin="dogecoin">
                 <img src="{% static 'frontend/images/dogecoin.png' %}">
                 <div>
                     <h3>$ <span id="dogecoin"></span></h3>
                     <p>Dogecoin</p>
                 </div>
             </div>
-            <div class="coin">
+            <div class="coin" data-coin="ethereum">
                 <img src="{% static 'frontend/images/ethereum.png' %}">
                 <div>
                     <h3>$ <span id="ethereum"></span></h3>
@@ -44,8 +44,103 @@
             </div>
         </div>
     </div>
+
+    <!-- Simple modal for collecting phone and amount -->
+    <div id="payment-modal" class="modal" style="display:none; position:fixed; left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
+      <div style="background:#fff;max-width:420px;margin:80px auto;padding:20px;border-radius:6px;">
+        <h3 id="modal-coin">Buy</h3>
+        <label>Phone number (e.g. 0712345678)</label>
+        <input id="modal-phone" type="text" style="width:100%;padding:8px;margin:6px 0;" />
+        <label>Amount (USD)</label>
+        <input id="modal-amount" type="number" step="0.01" style="width:100%;padding:8px;margin:6px 0;" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+          <button id="modal-cancel" class="btn">Cancel</button>
+          <button id="modal-pay" class="btn">Pay</button>
+        </div>
+        <div id="modal-status" style="margin-top:10px;color:#333"></div>
+      </div>
+    </div>
+
 {% endblock %}
 
 {% block scripts %}
-<!-- page scripts (if any) will be included here) -->
+<script>
+(function(){
+  function $(s){return document.querySelector(s)}
+  function $all(s){return Array.from(document.querySelectorAll(s))}
+
+  let selectedCoin = null
+  $all('.coin').forEach(function(el){
+    el.addEventListener('click', function(){
+      selectedCoin = el.getAttribute('data-coin') || 'unknown'
+      $('#modal-coin').textContent = 'Buy ' + selectedCoin
+      $('#modal-phone').value = ''
+      $('#modal-amount').value = ''
+      $('#modal-status').textContent = ''
+      $('#payment-modal').style.display = 'block'
+    })
+  })
+
+  $('#modal-cancel').addEventListener('click', function(){
+    $('#payment-modal').style.display = 'none'
+  })
+
+  $('#modal-pay').addEventListener('click', function(){
+    const phone = $('#modal-phone').value.trim()
+    const amount = $('#modal-amount').value.trim()
+    if(!phone || !amount){
+      $('#modal-status').textContent = 'Phone and amount are required.'
+      return
+    }
+    $('#modal-status').textContent = 'Initiating payment...'
+
+    fetch('/payments/initiate/', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({phone_number: phone, amount: amount, account_ref: selectedCoin, description: selectedCoin + ' purchase'})
+    }).then(r=>r.json()).then(function(data){
+      if(!data.success){
+        $('#modal-status').textContent = 'Failed to initiate: ' + (data.message || data.error || JSON.stringify(data))
+        return
+      }
+      const checkout = data.checkout_request_id || data.checkoutRequestID || data.raw_response && data.raw_response.CheckoutRequestID
+      if(!checkout){
+        $('#modal-status').textContent = 'No checkout id returned; contact support.'
+        return
+      }
+
+      $('#modal-status').textContent = 'Waiting for payment confirmation...'
+
+      // poll status
+      let attempts = 0
+      const maxAttempts = 40
+      const poll = function(){
+        attempts++
+        fetch('/payments/status/' + encodeURIComponent(checkout) + '/')
+          .then(r=>r.json())
+          .then(function(s){
+            if(s.success && s.status === 'success'){
+              $('#modal-status').textContent = 'Payment successful! Receipt: ' + (s.receipt || '')
+              setTimeout(()=>{ $('#payment-modal').style.display='none' }, 2000)
+            } else if(s.success && s.status === 'failed'){
+              $('#modal-status').textContent = 'Payment failed: ' + (s.error || 'Unknown')
+            } else if(attempts < maxAttempts){
+              setTimeout(poll, 3000)
+            } else {
+              $('#modal-status').textContent = 'Payment is taking longer than expected. Please check later.'
+            }
+          }).catch(function(e){
+            if(attempts < maxAttempts) setTimeout(poll, 3000)
+            else $('#modal-status').textContent = 'Network error while checking payment. Try again later.'
+          })
+      }
+      setTimeout(poll, 2000)
+
+    }).catch(function(err){
+      $('#modal-status').textContent = 'Network error initiating payment.'
+    })
+  })
+
+})();
+</script>
 {% endblock %}
