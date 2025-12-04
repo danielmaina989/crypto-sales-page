@@ -1,0 +1,19 @@
+<div class="card">
+  {% if title %}
+  <div class="card__header">
+    <h3 class="card__title">{{ title }}</h3>
+    {% if subtitle %}<div class="card__subtitle">{{ subtitle }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card__body">
+    {{ body|default:"" }}
+  </div>
+
+  {% if footer %}
+  <div class="card__footer">
+    {{ footer }}
+  </div>
+  {% endif %}
+</div>
+

@@ -1,0 +1,5 @@
+<div class="alert {% if type %}alert-{{ type }}{% endif %}">
+  {% if title %}<div class="alert__title">{{ title }}</div>{% endif %}
+  <div class="alert__body">{{ message }}</div>
+</div>
+

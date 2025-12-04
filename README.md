@@ -80,8 +80,25 @@ Terminal 3 — Celery Worker
 celery -A core worker -l info
 
 Terminal 4 — Ngrok (for callbacks)
+# If your Django dev server runs on the default port 8000:
 ngrok http 8000
 
+# If you run the server on port 8080 (or another port), start ngrok for that port instead:
+ngrok http 8080
+
+# Note: Use the ngrok forwarding URL (https://<your-subdomain>.ngrok-free.dev) as your MPESA callback URL and add that host to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` in your `.env`.
+
+
+## Quick run with ngrok
+
+If you're testing callbacks with ngrok, set the ngrok host in your shell and start the Django dev server (example):
+
+```bash
+export NGROK_HOST=subphrenic-tonda-hipper-ngrok-free.dev
+python manage.py runserver
+```
+
+This ensures `NGROK_HOST` is available to `settings_dev.py` and your local server accepts requests from the ngrok domain.
 
 ### **2. Install Dependencies**
 
@@ -139,12 +156,102 @@ python manage.py collectstatic
 
 ---
 
+# 🧹 Cleanup & Maintenance
+
+## Clean up failed test payments
+
+After testing MPESA flows, your database may accumulate failed payment records. Use the cleanup command to safely remove or recover them:
+
+```bash
+# Dry-run: see what would be changed (default)
+python manage.py cleanup_failed_payments
+
+# Mark failed payments WITH receipts as success (they actually succeeded but weren't recorded)
+python manage.py cleanup_failed_payments --apply
+
+# Delete failed test payments WITHOUT receipts
+python manage.py cleanup_failed_payments --apply --delete-tests
+
+# Only operate on payments older than 7 days
+python manage.py cleanup_failed_payments --apply --delete-tests --age-days 7
+```
+
+The command is safe:
+- **Always shows a summary first** (what would be changed).
+- **Requires `--apply` flag** to actually delete/modify records.
+- **Default is dry-run**, so you can safely inspect before committing changes.
+- **Marks as success** if the payment has a receipt (actually succeeded but callback didn't update DB).
+- **Deletes** only if explicitly requested with `--delete-tests` and the payment has no receipt.
+
+---
+
 # ⚠️ Notes & Best Practices
 
-* **Never commit secrets.** Use environment variables.
-* Set **DEBUG=False** in production.
-* Configure **ALLOWED_HOSTS** for deployment.
-* Use `.env` for local configuration and `.env.example` for documentation.
+### Security
+
+* **Never commit `.env` with secrets.** Use `.gitignore`:
+  ```
+  .env
+  *.key
+  accounts.json
+  ```
+* **Rotate sandbox credentials if exposed.** Even sandbox credentials should not be public—if you see them in git logs, regenerate them on Daraja.
+* **Keep `DEBUG=False` in production.** Never expose stack traces publicly.
+* **Configure `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`** for any public domains (e.g., ngrok URLs during development).
+
+### MPESA Callbacks
+
+* **Callback URLs must be stable.** If using ngrok, pay for a stable subdomain or use a persistent local tunnel—URLs that change will cause M-Pesa to post callbacks to the old URL, and payments will show as failed even though they succeeded.
+* **Callbacks are fire-and-forget.** M-Pesa doesn't retry if your server returns an error, so ensure your `/payments/callback/` endpoint always returns 200, even if processing takes time. Use background tasks (Celery) for heavy processing.
+
+### Environment Variables
+
+* Store all secrets in `.env` (never in `.py` files):
+  ```
+  SECRET_KEY=your-secret-here
+  DEBUG=True
+  MPESA_CONSUMER_KEY=your-key
+  MPESA_CONSUMER_SECRET=your-secret
+  MPESA_CALLBACK_URL=https://your-domain/payments/callback/
+  ```
+* Create `.env.example` with dummy values for documentation:
+  ```bash
+  cp .env.example .env
+  # then edit .env with your real credentials
+  ```
+
+## Environment (.env)
+
+For local development, copy `.env.example` to `.env` and fill in real values. Do NOT commit your `.env` file — it's already included in `.gitignore`.
+
+```bash
+# copy the example and edit
+cp .env.example .env
+# then open .env and set real values (SECRET_KEY, MPESA keys, etc.)
+# example quick edit using nano:
+nano .env
+```
+
+Example values you should set in `.env`:
+
+```
+SECRET_KEY=dev-insecure-secret-key
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=https://subphrenic-tonda-hipper.ngrok-free.dev
+
+MPESA_CONSUMER_KEY=riGjp64odowDOnvadnjyjeiJUmc4eSDtQeclNKNfXCscICpk
+MPESA_CONSUMER_SECRET=fXRp0DR8huY76Bsjog15rX2CAcZ27i19dyu3AtYGYzHorvHWIXDJKUqJCqtGAxsn
+MPESA_CALLBACK_URL=https://subphrenic-tonda-hipper.ngrok-free.dev/payments/callback/
+MPESA_ENV=sandbox
+```
+
+If you prefer to keep secrets in the shell instead of a `.env` file, you can export variables in your shell session instead:
+
+```bash
+export MPESA_CONSUMER_KEY=...
+export MPESA_CONSUMER_SECRET=...
+```
 
 ---
 
@@ -153,6 +260,19 @@ python manage.py collectstatic
 * Use feature branches
 * Write tests for new features
 * Open descriptive pull requests
+* **Review [SECURITY.md](SECURITY.md) before handling credentials or secrets**
+
+---
+
+# 🔐 Security
+
+This project handles sensitive data (MPESA credentials, Django secrets). Please review [SECURITY.md](SECURITY.md) for:
+- Best practices for storing secrets
+- Incident response procedures
+- Credential rotation guidelines
+- Pre-commit hooks to prevent accidental leaks
+
+**If you discover a security vulnerability, do NOT open a public issue.** See SECURITY.md for reporting instructions.
 
 ---
 
@@ -222,8 +342,8 @@ Optional helper command exists: `python manage.py createsu`.
 
 ## **2. MPESA STK Push Improvements**
 
-* [ ] Add detailed logging for token + STK steps  # TODO: add structured logging
-* [ ] Implement retry logic                         # TODO: add retry/backoff for transient errors
+* [x] Add detailed logging for token + STK steps  # TODO: add structured logging
+* [x] Implement retry logic                         # TODO: add retry/backoff for transient errors
 * [ ] Validate API responses                        # TODO: add strict response schema validation
 
 ### Webhook
@@ -252,8 +372,8 @@ Optional helper command exists: `python manage.py createsu`.
 * [ ] Global error handler middleware
 * [ ] JWT or session-based authentication
 * [ ] Add rate limiting
-* [ ] Integrate Celery + Redis
-* [ ] Add periodic tasks + retries
+* [x] Integrate Celery + Redis
+* [x] Add periodic tasks + retries
 
 ---
 

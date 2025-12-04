@@ -1,65 +1,56 @@
 {% extends 'frontend/base.html' %}
 {% load static %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'frontend/crypto.css' %}">
+{% endblock %}
+
 {% block title %}Cryptocurrency{% endblock %}
 
 {% block content %}
-    <div class="container">
-       <nav>
-        <img src="{% static 'frontend/images/logo.png' %}" class="logo">
-        <ul>
-            <li><a href="#">Market</a></li>
-            <li><a href="#">Feature</a></li>
-            <li><a href="#">White Papers</a></li>
-            <li><a href="#">About Us</a></li>
-        </ul>
-        <a href="#" class="btn">EN</a>
-       </nav>
-        <div class="content">
-            <h1>BUY & <br> SELL <span>Crypto</span></h1>
-            <p>World best Cryptocurrency exchange available <br> on mobile as well as mobile phone</p>
-            <button>EXPLORE MORE</button>
-        </div>
-        <div class="coin-list">
-            <div class="coin" data-coin="bitcoin">
-                <img src="{% static 'frontend/images/bitcoin.png' %}">
-                <div>
-                    <h3>$ <span id="bitcoin"></span></h3>
-                    <p>Bitcoin</p>
-                </div>
-            </div>
-            <div class="coin" data-coin="dogecoin">
-                <img src="{% static 'frontend/images/dogecoin.png' %}">
-                <div>
-                    <h3>$ <span id="dogecoin"></span></h3>
-                    <p>Dogecoin</p>
-                </div>
-            </div>
-            <div class="coin" data-coin="ethereum">
-                <img src="{% static 'frontend/images/ethereum.png' %}">
-                <div>
-                    <h3>$ <span id="ethereum"></span></h3>
-                    <p>Ethereum</p>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Simple modal for collecting phone and amount -->
-    <div id="payment-modal" class="modal" style="display:none; position:fixed; left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
-      <div style="background:#fff;max-width:420px;margin:80px auto;padding:20px;border-radius:6px;">
-        <h3 id="modal-coin">Buy</h3>
-        <label>Phone number (e.g. 0712345678)</label>
-        <input id="modal-phone" type="text" style="width:100%;padding:8px;margin:6px 0;" />
-        <label>Amount (USD)</label>
-        <input id="modal-amount" type="number" step="0.01" style="width:100%;padding:8px;margin:6px 0;" />
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-          <button id="modal-cancel" class="btn">Cancel</button>
-          <button id="modal-pay" class="btn">Pay</button>
-        </div>
-        <div id="modal-status" style="margin-top:10px;color:#333"></div>
+<div class="landing">
+  <div class="container">
+
+      {% include 'frontend/components/navbar.html' %}
+
+      <div class="content">
+         <h1>BUY & <br> SELL <span>Crypto</span></h1>
+         <p>World best Cryptocurrency exchange available <br> on mobile as well as mobile phone</p>
+         <button class="btn-primary">EXPLORE MORE</button>
       </div>
-    </div>
+
+      <div class="coin-list">
+          <div class="coin" data-coin="bitcoin">
+              <img src="{% static 'frontend/images/bitcoin.png' %}" alt="bitcoin">
+              <div>
+                  <h3>$ <span id="bitcoin"></span></h3>
+                  <p>Bitcoin</p>
+              </div>
+          </div>
+
+          <div class="coin" data-coin="dogecoin">
+              <img src="{% static 'frontend/images/dogecoin.png' %}" alt="dogecoin">
+              <div>
+                  <h3>$ <span id="dogecoin"></span></h3>
+                  <p>Dogecoin</p>
+              </div>
+          </div>
+
+          <div class="coin" data-coin="ethereum">
+              <img src="{% static 'frontend/images/ethereum.png' %}" alt="ethereum">
+              <div>
+                  <h3>$ <span id="ethereum"></span></h3>
+                  <p>Ethereum</p>
+              </div>
+          </div>
+      </div>
+
+     {# include the payment modal component so the scripts can find it #}
+     {% include 'frontend/components/modal_payment.html' %}
+
+  </div>
+</div>
 
 {% endblock %}
 
@@ -69,93 +60,102 @@
   function $(s){return document.querySelector(s)}
   function $all(s){return Array.from(document.querySelectorAll(s))}
 
+  // Cache frequently used nodes (modal may be included via template)
+  const modal = $('#payment-modal')
+  const modalStatus = modal ? modal.querySelector('#modal-status') : null
+  const modalPhone = modal ? modal.querySelector('#modal-phone') : null
+  const modalAmount = modal ? modal.querySelector('#modal-amount') : null
+  const modalPay = modal ? modal.querySelector('#modal-pay') : null
+  const modalCancel = modal ? modal.querySelector('#modal-cancel') : null
+
+  // Helper to toggle loading state on the pay button
+  function setLoading(isLoading){
+    if(!modalPay) return
+    if(isLoading){
+      modalPay.classList.add('loading')
+      modalPay.disabled = true
+    } else {
+      modalPay.classList.remove('loading')
+      modalPay.disabled = false
+    }
+  }
+
+  // Helper to open/close modal (manage aria-hidden)
+  function openModal(){ if(!modal) return; modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+  function closeModal(){ if(!modal) return; modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
+
   let selectedCoin = null
   $all('.coin').forEach(function(el){
     el.addEventListener('click', function(){
       selectedCoin = el.getAttribute('data-coin') || 'unknown'
-      $('#modal-coin').textContent = 'Buy ' + selectedCoin
-      $('#modal-phone').value = ''
-      $('#modal-amount').value = ''
-      $('#modal-status').textContent = ''
-      $('#payment-modal').style.display = 'block'
+      if(modal){ modal.querySelector('#modal-coin').textContent = 'Buy ' + selectedCoin }
+      if(modalPhone) modalPhone.value = ''
+      if(modalAmount) modalAmount.value = ''
+      if(modalStatus) modalStatus.textContent = ''
+      openModal()
     })
   })
 
-  $('#modal-cancel').addEventListener('click', function(){
-    $('#payment-modal').style.display = 'none'
-  })
+  if(modalCancel){ modalCancel.addEventListener('click', function(){ closeModal(); setLoading(false) }) }
 
-  $('#modal-pay').addEventListener('click', function(){
-    const payBtn = $('#modal-pay')
-    const phone = $('#modal-phone').value.trim()
-    const amount = $('#modal-amount').value.trim()
-    if(!phone || !amount){
-      $('#modal-status').textContent = 'Phone and amount are required.'
-      return
-    }
-    payBtn.disabled = true
-    $('#modal-status').textContent = 'Initiating payment...'
+  if(modalPay){
+    modalPay.addEventListener('click', function(){
+      const payBtn = modalPay
+      const phone = modalPhone ? modalPhone.value.trim() : ''
+      const amount = modalAmount ? modalAmount.value.trim() : ''
+      if(!phone || !amount){ if(modalStatus) modalStatus.textContent = 'Phone and amount are required.'; return }
 
-    fetch('/payments/initiate/', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({phone_number: phone, amount: amount, account_ref: selectedCoin, description: selectedCoin + ' purchase'})
-    }).then(function(r){
-      if(!r.ok){
-        return r.json().catch(function(){
-          throw new Error('Server error: ' + r.status)
-        }).then(function(err){
-          throw new Error(err.message || err.error || 'Server error')
-        })
-      }
-      return r.json()
-    }).then(function(data){
-      if(!data.success){
-        $('#modal-status').textContent = 'Failed to initiate: ' + (data.message || data.error || JSON.stringify(data))
-        payBtn.disabled = false
-        return
-      }
-      const checkout = data.checkout_request_id || data.checkoutRequestID || data.raw_response && data.raw_response.CheckoutRequestID
-      if(!checkout){
-        $('#modal-status').textContent = 'No checkout id returned; contact support.'
-        payBtn.disabled = false
-        return
-      }
+      // start loading
+      setLoading(true)
+      if(modalStatus) modalStatus.textContent = 'Initiating payment...'
 
-      $('#modal-status').textContent = 'Waiting for payment confirmation...'
+      fetch('/payments/initiate/', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({phone_number: phone, amount: amount, account_ref: selectedCoin, description: selectedCoin + ' purchase'})
+      }).then(function(r){
+        if(!r.ok){
+          return r.json().catch(function(){ throw new Error('Server error: ' + r.status) }).then(function(err){ throw new Error(err.message || err.error || 'Server error') })
+        }
+        return r.json()
+      }).then(function(data){
+        if(!data.success){
+          if(modalStatus) modalStatus.textContent = 'Failed to initiate: ' + (data.message || data.error || JSON.stringify(data))
+          setLoading(false)
+          return
+        }
+        const checkout = data.checkout_request_id || data.checkoutRequestID || data.raw_response && data.raw_response.CheckoutRequestID
+        if(!checkout){ if(modalStatus) modalStatus.textContent = 'No checkout id returned; contact support.'; setLoading(false); return }
 
-      // poll status
-      let attempts = 0
-      const maxAttempts = 40
-      const poll = function(){
-        attempts++
-        fetch('/payments/status/' + encodeURIComponent(checkout) + '/')
-          .then(r=>r.json())
-          .then(function(s){
-            if(s.success && s.status === 'success'){
-              $('#modal-status').textContent = 'Payment successful! Receipt: ' + (s.receipt || '')
-              setTimeout(()=>{ $('#payment-modal').style.display='none' }, 2000)
-            } else if(s.success && s.status === 'failed'){
-              $('#modal-status').textContent = 'Payment failed: ' + (s.error || 'Unknown')
-              payBtn.disabled = false
-            } else if(attempts < maxAttempts){
-              setTimeout(poll, 3000)
-            } else {
-              $('#modal-status').textContent = 'Payment is taking longer than expected. Please check later.'
-              payBtn.disabled = false
-            }
-          }).catch(function(e){
-            if(attempts < maxAttempts) setTimeout(poll, 3000)
-            else { $('#modal-status').textContent = 'Network error while checking payment. Try again later.'; payBtn.disabled = false }
-          })
-      }
-      setTimeout(poll, 2000)
+        if(modalStatus) modalStatus.textContent = 'Waiting for payment confirmation...'
 
-    }).catch(function(err){
-      $('#modal-status').textContent = 'Error initiating payment: ' + (err.message || err)
-      payBtn.disabled = false
+        // poll status
+        let attempts = 0
+        const maxAttempts = 40
+        const poll = function(){
+          attempts++
+          fetch('/payments/status/' + encodeURIComponent(checkout) + '/')
+            .then(r=>r.json())
+            .then(function(s){
+              if(s.success && s.status === 'success'){
+                if(modalStatus) modalStatus.textContent = 'Payment successful! Receipt: ' + (s.receipt || '')
+                setTimeout(function(){ closeModal(); setLoading(false) }, 2000)
+              } else if(s.success && s.status === 'failed'){
+                if(modalStatus) modalStatus.textContent = 'Payment failed: ' + (s.error || 'Unknown')
+                setLoading(false)
+              } else if(attempts < maxAttempts){
+                setTimeout(poll, 3000)
+              } else {
+                if(modalStatus) modalStatus.textContent = 'Payment is taking longer than expected. Please check later.'
+                setLoading(false)
+              }
+            }).catch(function(err){ console.error(err); if(attempts < maxAttempts) setTimeout(poll, 3000); else { if(modalStatus) modalStatus.textContent = 'Network error while checking payment. Try again later.'; setLoading(false) } })
+        }
+        setTimeout(poll, 2000)
+
+      }).catch(function(err){ console.error(err); if(modalStatus) modalStatus.textContent = 'Error initiating payment: ' + (err.message || err); setLoading(false) })
     })
-  })
+  }
 
 })();
 </script>
