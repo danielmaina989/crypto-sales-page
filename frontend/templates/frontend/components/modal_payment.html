@@ -1,0 +1,24 @@
+{% load static %}
+<div id="payment-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="modal-coin">Buy</h3>
+
+    <div class="form-field">
+      <label for="modal-phone" class="form-field__label">Phone number (e.g. 0712345678)</label>
+      <input id="modal-phone" class="form-control" type="text" />
+    </div>
+
+    <div class="form-field">
+      <label for="modal-amount" class="form-field__label">Amount (USD)</label>
+      <input id="modal-amount" class="form-control" type="number" step="0.01" />
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+      <button id="modal-cancel" class="btn-secondary">Cancel</button>
+      <button id="modal-pay" class="btn-primary btn-loading">Pay</button>
+    </div>
+
+    <div id="modal-status" class="text-muted" style="margin-top:10px;color:#333"></div>
+  </div>
+</div>
+

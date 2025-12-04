@@ -18,8 +18,11 @@
     <link rel="icon" type="image/png" href="{% static 'frontend/images/logo.png' %}">
     <link rel="shortcut icon" href="{% static 'frontend/images/logo.png' %}" />
 
-    <!-- Main stylesheet -->
-    <link rel="stylesheet" href="{% static 'frontend/crypto.css' %}">
+    <!-- Global theme (loads on every page) -->
+    <link rel="stylesheet" href="{% static 'frontend/theme.css' %}">
+
+    <!-- Per-page CSS (e.g. landing page can inject `crypto.css`) -->
+    {% block page_css %}{% endblock %}
 
     <!-- Optional head extra -->
     {% block head %}{% endblock %}
@@ -41,6 +44,7 @@
 
     <!-- Main javascript -->
     <script src="{% static 'frontend/crypto.js' %}"></script>
+    <script src="{% static 'frontend/ui.js' %}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

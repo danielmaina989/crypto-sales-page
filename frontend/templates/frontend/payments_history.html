@@ -1,0 +1,33 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Payment History{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2>Payment History</h2>
+
+  {% if payments %}
+    <div class="row">
+      {% for p in payments %}
+        <div class="col">
+          {% include 'frontend/components/card.html' with title=p.get_status_display subtitle=p.created_at %}
+            {% comment %} provide body and footer via block replacements by overriding variables is not supported in include; instead render inline here {% endcomment %}
+            <div class="card__body">
+              <p><strong>Amount:</strong> KES {{ p.amount }}</p>
+              <p><strong>Phone:</strong> {{ p.phone_number }}</p>
+              <p><strong>Receipt:</strong> {{ p.mpesa_receipt_number|default:'-' }}</p>
+              <p><strong>Note:</strong> {{ p.description|default:'-' }}</p>
+            </div>
+            <div class="card__footer">
+              <a href="#" class="btn-secondary">Details</a>
+            </div>
+          </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No payments found.</p>
+  {% endif %}
+
+</div>
+{% endblock %}

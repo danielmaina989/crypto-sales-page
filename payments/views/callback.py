@@ -31,6 +31,28 @@ def mpesa_callback(request):
     """
     raw_body = None
     data = None
+
+    # --- Enhanced diagnostic logging: log host, full path, headers, and forwarding info ---
+    try:
+        host = request.get_host()
+    except Exception:
+        host = request.META.get('HTTP_HOST') or request.META.get('SERVER_NAME')
+
+    full_path = request.get_full_path() if hasattr(request, 'get_full_path') else request.path
+    remote_addr = request.META.get('REMOTE_ADDR')
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    proto = request.META.get('HTTP_X_FORWARDED_PROTO') or request.scheme
+
+    try:
+        hdrs = dict(request.headers) if hasattr(request, 'headers') else {k: v for k, v in request.META.items() if k.startswith('HTTP_')}
+        hdrs_json = json.dumps(hdrs)
+    except Exception:
+        hdrs_json = None
+
+    logger.info('mpesa_callback incoming request: host=%s full_path=%s remote=%s xff=%s proto=%s', host, full_path, remote_addr, xff, proto)
+    if hdrs_json:
+        logger.debug('mpesa_callback headers: %s', _safe_truncate(hdrs_json, 1000))
+
     try:
         raw_body = request.body.decode('utf-8') if request.body else ''
     except Exception:

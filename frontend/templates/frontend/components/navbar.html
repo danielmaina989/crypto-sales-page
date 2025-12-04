@@ -1,0 +1,40 @@
+{% load static %}
+<nav class="site-nav" role="navigation" aria-label="Main navigation">
+  <div class="site-nav__inner container">
+    <a class="site-nav__brand" href="/">
+      <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo">
+    </a>
+
+    <button class="site-nav__toggle" aria-expanded="false" aria-controls="site-nav-links" aria-label="Toggle navigation">
+      <span class="hamburger"></span>
+    </button>
+
+    <ul id="site-nav-links" class="site-nav__links">
+      <li><a href="#">Market</a></li>
+      <li><a href="#">Feature</a></li>
+      <li><a href="#">White Papers</a></li>
+      <li><a href="#">About Us</a></li>
+    </ul>
+
+    <div class="site-nav__actions">
+      <a href="/accounts/login/" class="btn-secondary">Login</a>
+      <a href="/payments/history/" class="btn-secondary">History</a>
+      <a href="/dashboard/" class="btn-primary">Dashboard</a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  // Small inline toggle script for the navbar (keeps component self-contained)
+  (function(){
+    var btn = document.querySelector('.site-nav__toggle');
+    var nav = document.querySelector('.site-nav');
+    var links = document.getElementById('site-nav-links');
+    if(!btn || !nav || !links) return;
+    btn.addEventListener('click', function(){
+      var expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!expanded));
+      nav.classList.toggle('open');
+    });
+  })();
+</script>
