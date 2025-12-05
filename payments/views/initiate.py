@@ -249,7 +249,7 @@ def initiate_payment(request):
         except Exception:
             logger.exception('Unexpected error when trying to queue poll task')
 
-        return JsonResponse({'success': True, 'checkout_request_id': checkout_id, 'raw_response': raw})
+        return JsonResponse({'success': True, 'checkout_request_id': checkout_id, 'payment_id': getattr(payment, 'id', None), 'raw_response': raw})
 
     except Exception as exc:
         # Catch-all to avoid a hard 500; log and return JSON
