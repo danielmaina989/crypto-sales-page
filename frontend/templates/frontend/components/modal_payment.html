@@ -14,7 +14,8 @@
       <h2 id="selected-coin-name">Buy</h2>
     </div>
 
-    <p class="price">Price: <span id="selected-coin-price"></span></p>
+    <p class="price">Price (USD): <span id="selected-coin-price">-</span></p>
+    <p class="price">Price (KES): <span id="selected-coin-price-kes">-</span></p>
 
     <!-- PAYMENT METHOD SWITCHER -->
     <div class="payment-method-tabs">
@@ -31,7 +32,7 @@
 
       <div class="form-field">
         <label for="mpesa-amount">Amount (KES)</label>
-        <input id="mpesa-amount" type="number" class="form-control">
+        <input id="mpesa-amount" type="number" class="form-control" readonly>
       </div>
 
       <button id="mpesa-pay" class="btn-primary">Pay with MPesa</button>
@@ -57,47 +58,40 @@
 </div>
 
 <script>
-(function(){
-  // Elements
-  var modal = document.getElementById('payment-modal');
-  var openDemo = document.getElementById('open-payment-demo');
-  var closeBtn = document.getElementById('payment-close');
+(async function(){
+  const modal = document.getElementById('payment-modal');
+  const openDemo = document.getElementById('open-payment-demo');
+  const closeBtn = document.getElementById('payment-close');
 
-  var tabBtns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
-  var mpesaTab = document.getElementById('tab-mpesa');
-  var cryptoTab = document.getElementById('tab-crypto');
+  const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
+  const mpesaTab = document.getElementById('tab-mpesa');
+  const cryptoTab = document.getElementById('tab-crypto');
 
-  var selName = document.getElementById('selected-coin-name');
-  var selImage = document.getElementById('selected-coin-image');
-  var selPrice = document.getElementById('selected-coin-price');
+  const selName = document.getElementById('selected-coin-name');
+  const selImage = document.getElementById('selected-coin-image');
+  const selPriceUSD = document.getElementById('selected-coin-price');
+  const selPriceKES = document.getElementById('selected-coin-price-kes');
 
-  var walletInput = document.getElementById('wallet-address');
-  var copyBtn = document.getElementById('copy-wallet');
-  var qrCanvas = document.getElementById('qr-code');
+  const walletInput = document.getElementById('wallet-address');
+  const copyBtn = document.getElementById('copy-wallet');
+  const qrCanvas = document.getElementById('qr-code');
 
-  var mpesaPhone = document.getElementById('mpesa-phone');
-  var mpesaAmount = document.getElementById('mpesa-amount');
-  var mpesaPay = document.getElementById('mpesa-pay');
-  var mpesaStatus = document.getElementById('mpesa-status');
+  const mpesaPhone = document.getElementById('mpesa-phone');
+  const mpesaAmount = document.getElementById('mpesa-amount');
+  const mpesaPay = document.getElementById('mpesa-pay');
+  const mpesaStatus = document.getElementById('mpesa-status');
 
-  function openModal(){
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden','false');
-  }
-  function closeModal(){
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden','true');
-  }
+  function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
+  function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 
-  if(closeBtn) closeBtn.addEventListener('click', closeModal);
-  if(modal) modal.addEventListener('click', function(e){ if(e.target === modal) closeModal(); });
+  closeBtn?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
 
-  // TAB SWITCHING
-  tabBtns.forEach(function(btn){
+  tabBtns.forEach(btn=>{
     btn.addEventListener('click', function(){
-      tabBtns.forEach(function(b){ b.classList.remove('active'); });
+      tabBtns.forEach(b=>b.classList.remove('active'));
       this.classList.add('active');
-      if(this.dataset.tab === 'crypto'){
+      if(this.dataset.tab==='crypto'){
         mpesaTab.classList.remove('active');
         cryptoTab.classList.add('active');
       } else {
@@ -107,103 +101,88 @@
     });
   });
 
-  // Populate modal with clicked coin data
-  function populate(card){
-    if(!card) return;
-    var name = card.dataset && card.dataset.coin ? card.dataset.coin : (card.getAttribute && card.getAttribute('data-coin')) || '';
-    var price = card.dataset && card.dataset.price ? card.dataset.price : (card.getAttribute && card.getAttribute('data-price')) || '';
-    var image = (card.querySelector && card.querySelector('img')) ? card.querySelector('img').src : (card.dataset && card.dataset.image) || '';
-    var wallet = card.dataset && card.dataset.wallet ? card.dataset.wallet : (card.getAttribute && card.getAttribute('data-wallet')) || '';
-
-    selName.textContent = name ? name : 'Buy';
-    selPrice.textContent = price ? price : '';
-    selImage.innerHTML = image ? '<img src="'+image+'" width="60" alt="'+(name||'coin')+'" />' : '';
-
-    if(walletInput) walletInput.value = wallet;
-
-    // Generate QR if library available
-    try{
-      if(typeof QRCode !== 'undefined' && qrCanvas){
-        QRCode.toCanvas(qrCanvas, wallet || '', { margin: 2 });
-      } else if(typeof QR !== 'undefined' && qrCanvas && typeof QR.toCanvas === 'function'){
-        QR.toCanvas(qrCanvas, wallet || '');
+  async function fetchCryptoPrices() {
+    try {
+      const coins = [{id:"bitcoin", symbol:"BTC"},{id:"ethereum",symbol:"ETH"},{id:"dogecoin",symbol:"DOGE"}];
+      let prices = {};
+      for(const coin of coins){
+        const res = await fetch(`https://api.coinbase.com/v2/prices/${coin.symbol}-USD/spot`);
+        const data = await res.json();
+        prices[coin.id] = parseFloat(data.data.amount);
       }
-    }catch(err){ console.error('QR gen failed', err); if(qrCanvas && qrCanvas.getContext) try{ qrCanvas.getContext('2d').clearRect(0,0,qrCanvas.width, qrCanvas.height); }catch(e){} }
+      return prices;
+    } catch(err){ console.error("Crypto price fetch error:", err); return null; }
+  }
+
+  async function fetchForexRate() {
+    try {
+      const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=KES");
+      const data = await res.json();
+      if(data?.success && data.rates && typeof data.rates.KES==='number') return data.rates.KES;
+      console.warn("Unexpected forex API response structure:", data);
+      return null;
+    } catch(err){ console.error("Forex fetch error:", err); return null; }
+  }
+
+  async function populate(card){
+    const name = card.dataset?.coin || card.getAttribute?.('data-coin') || '';
+    const image = card.querySelector?.('img')?.src || card.dataset?.image || '';
+    const wallet = card.dataset?.wallet || card.getAttribute?.('data-wallet') || '';
+    selName.textContent = name || 'Buy';
+    selImage.innerHTML = image?`<img src="${image}" width="60" alt="${name||'coin'}"/>`:'';
+    walletInput.value = wallet || '';
+
+    const cryptoPrices = await fetchCryptoPrices();
+    let rateKES = await fetchForexRate();
+    if(!rateKES || rateKES <= 0) rateKES = 150; // fallback 1 USD ~ 150 KES
+
+    if(cryptoPrices && cryptoPrices[name.toLowerCase()]){
+      const usdPrice = cryptoPrices[name.toLowerCase()];
+      selPriceUSD.textContent = usdPrice.toFixed(2);
+      selPriceKES.textContent = Math.round(usdPrice*rateKES).toLocaleString();
+      if(mpesaAmount) mpesaAmount.value = Math.max(1, Math.round(usdPrice*rateKES)); // ensure >0
+    } else {
+      console.warn(`No crypto price found for ${name}`);
+      if(mpesaAmount) mpesaAmount.value = 1;
+    }
+
+    try{
+      if(typeof QRCode!=='undefined' && qrCanvas) QRCode.toCanvas(qrCanvas, wallet||'', {margin:2});
+      else if(typeof QR!=='undefined' && qrCanvas && typeof QR.toCanvas==='function') QR.toCanvas(qrCanvas, wallet||'');
+    }catch(err){ console.error('QR gen failed', err); qrCanvas?.getContext?.('2d')?.clearRect(0,0,qrCanvas.width,qrCanvas.height); }
 
     openModal();
   }
 
-  // Attach to coin cards (delegated to existing .coin elements)
-  var cards = document.querySelectorAll('.coin, .crypto-card, [data-coin]');
-  cards.forEach(function(card){
-    card.addEventListener('click', function(){ populate(card); });
+  const cards = document.querySelectorAll('.coin, .crypto-card, [data-coin]');
+  cards.forEach(card=>card.addEventListener('click', ()=>populate(card)));
+  openDemo?.addEventListener('click', ()=>populate(document.createElement('div')));
+
+  copyBtn?.addEventListener('click', ()=>{
+    if(!walletInput) return;
+    walletInput.select();
+    try{ document.execCommand('copy'); copyBtn.textContent='Copied!'; setTimeout(()=>{copyBtn.textContent='Copy';},1200); }catch(e){console.error('copy failed', e);}
   });
 
-  if(openDemo) openDemo.addEventListener('click', function(){ populate(document.createElement('div')) });
+  mpesaPay?.addEventListener('click', ()=>{
+    if(!mpesaPhone || !mpesaAmount){ mpesaStatus.textContent='Phone and amount required.'; return; }
+    const phone=mpesaPhone.value.trim();
+    const amount=mpesaAmount.value.trim();
+    if(!phone || !amount || parseInt(amount)<=0){
+      mpesaStatus.textContent='Invalid amount or phone.';
+      return;
+    }
 
-  // COPY WALLET
-  if(copyBtn){
-    copyBtn.addEventListener('click', function(){
-      if(!walletInput) return;
-      walletInput.select();
-      try{ document.execCommand('copy'); copyBtn.textContent = 'Copied!'; setTimeout(function(){ copyBtn.textContent = 'Copy'; }, 1200); }catch(e){ console.error('copy failed', e); }
-    });
-  }
-
-  // MPESA PAYMENT (PATCHED)
-  if (mpesaPay) {
-    mpesaPay.addEventListener('click', function () {
-
-      if (!mpesaPhone || !mpesaAmount) {
-        if (mpesaStatus) mpesaStatus.textContent = 'Phone and amount required.';
-        return;
-      }
-
-      var phone = mpesaPhone.value.trim();
-      var amount = mpesaAmount.value.trim();
-      var coinName = selName.textContent || "Crypto"; // ensure safe value
-
-      if (!phone || !amount) {
-        if (mpesaStatus) mpesaStatus.textContent = 'Phone and amount required.';
-        return;
-      }
-
-      mpesaStatus.textContent = 'Sending STK Push...';
-
-      fetch('/payments/initiate/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': (function () {
-            var re = /(^|; )csrftoken=([^;]+)/;
-            var m = document.cookie.match(re);
-            return m ? decodeURIComponent(m[2]) : '';
-          })()
-        },
-        body: JSON.stringify({
-          phone_number: phone,
-          amount: amount,
-          account_ref: coinName,
-          description: "Purchase " + coinName
-        })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-          if (!res || !res.success) {
-            if (mpesaStatus) mpesaStatus.textContent =
-              'Error: ' + (res && (res.message || res.error) || 'Unknown');
-            return;
-          }
-          if (mpesaStatus) mpesaStatus.textContent =
-            'Awaiting confirmation on your phone…';
-        })
-        .catch(function (err) {
-          console.error(err);
-          if (mpesaStatus) mpesaStatus.textContent =
-            'Network error initiating payment.';
-        });
-    });
-  }
+    mpesaStatus.textContent='Sending STK Push...';
+    fetch('/payments/initiate/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':(function(){var re=/(^|; )csrftoken=([^;]+)/;var m=document.cookie.match(re);return m?decodeURIComponent(m[2]):'';})()},
+      body:JSON.stringify({phone_number:phone, amount:amount})
+    }).then(r=>r.json()).then(res=>{
+      if(!res||!res.success) mpesaStatus.textContent='Error: '+(res?.message||res?.error||'Unknown');
+      else mpesaStatus.textContent='Awaiting confirmation on your phone…';
+    }).catch(err=>{ console.error(err); mpesaStatus.textContent='Network error initiating payment.'; });
+  });
 
 })();
 </script>
