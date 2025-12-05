@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 @csrf_exempt
 @require_POST
 def initiate_payment(request):
+    payment = None
     try:
         # Allow authenticated users; if unauthenticated create/assign a fallback guest user
         User = get_user_model()
@@ -57,8 +58,9 @@ def initiate_payment(request):
 
         amount = payload.get('amount')
         phone = payload.get('phone_number')
-        account_ref = payload.get('account_ref', '')
-        description = payload.get('description', '')
+        # SAFE FALLBACK VALUES to avoid MPESA 400 errors when missing fields
+        account_ref = payload.get('account_ref') or 'Crypto'
+        description = payload.get('description') or f'Purchase {account_ref}'
 
         if not amount or not phone:
             return JsonResponse({'success': False, 'message': 'amount and phone_number are required'}, status=400)
@@ -193,7 +195,7 @@ def initiate_payment(request):
             except Exception as exc:
                 # Check for 403-like responses in the error message and treat as dev-only condition
                 err_text = str(exc).lower()
-                logger.error('Access token fetch failed before enqueuing poll for payment %s: %s', payment.id, err_text)
+                logger.error('Access token fetch failed before enqueuing poll for payment %s: %s', getattr(payment, 'id', '<unknown>'), err_text)
                 # If running in DEBUG or explicit env var, fall back to simulation (dev-only)
                 force_sim = getattr(settings, 'DEBUG', False) or os.getenv('MPESA_FORCE_SIMULATE_IF_TOKEN_FAIL') in ('1', 'true', 'True')
                 if force_sim:
@@ -215,9 +217,9 @@ def initiate_payment(request):
                         payment.error_message = f"Autofallback to simulation due to token error: {err_text}"[:1000]
                         payment.updated_at = timezone.now()
                         payment.save()
-                        logger.info('Applied dev fallback simulation for payment %s after token failure', payment.id)
+                        logger.info('Applied dev fallback simulation for payment %s after token failure', getattr(payment, 'id', '<unknown>'))
                     except Exception:
-                        logger.exception('Failed to apply dev fallback simulation for payment %s', payment.id)
+                        logger.exception('Failed to apply dev fallback simulation for payment %s', getattr(payment, 'id', '<unknown>'))
                 else:
                     payment.status = 'failed'
                     payment.error_message = f"Failed to fetch MPESA access token: {err_text}"
@@ -238,10 +240,10 @@ def initiate_payment(request):
                     if hasattr(poll_payment_status, 'delay'):
                         # Respect global MPESA polling delay from settings
                         configured_delay = int(getattr(settings, 'MPESA_POLL_DELAY_SECONDS', 12))
-                        poll_payment_status.delay(payment.id, attempts=0, max_attempts=40, delay=configured_delay)
+                        poll_payment_status.delay(getattr(payment, 'id', None), attempts=0, max_attempts=40, delay=configured_delay)
                     else:
                         # Fallback to synchronous polling if Celery not configured
-                        poll_payment_status(payment.id)
+                        poll_payment_status(getattr(payment, 'id', None))
                 except Exception:
                     logger.exception('Failed to enqueue poll_payment_status task; will rely on webhook/callbacks')
         except Exception:
@@ -252,12 +254,7 @@ def initiate_payment(request):
     except Exception as exc:
         # Catch-all to avoid a hard 500; log and return JSON
         logger.exception('Unhandled error in initiate_payment')
-        try:
-            # mark payment failed if created earlier in this request
-            payment
-        except NameError:
-            payment = None
-        if payment:
+        if payment is not None:
             try:
                 payment.status = 'failed'
                 payment.error_message = str(exc)
