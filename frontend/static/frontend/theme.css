@@ -82,6 +82,11 @@ input:focus, textarea:focus{ outline:none; border-color:var(--color-primary); bo
   justify-content:center;
 }
 
+/* Show modal when open */
+.modal.open{
+  display:flex;
+}
+
 .modal-card{
   background:var(--color-surface);
   max-width:480px;
