@@ -16,37 +16,15 @@
 
       <div class="content">
          <h1>BUY & <br> SELL <span>Crypto</span></h1>
-         <p>World best Cryptocurrency exchange available <br> on mobile as well as mobile phone</p>
-         <button class="btn-primary">EXPLORE MORE</button>
+         <p>World best Cryptocurrency exchange available <br> on mobile as well as desktop</p>
+         <a href="{% url 'market' %}" class="btn-primary">Explore Market</a>
       </div>
 
-      <div class="coin-list">
-          <div class="coin" data-coin="Bitcoin" data-symbol="BTC" data-price="$42,100" data-image="{% static 'frontend/images/bitcoin.png' %}" data-wallet="bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa">
-              <img src="{% static 'frontend/images/bitcoin.png' %}" alt="bitcoin">
-              <div>
-                  <h3>$ <span id="bitcoin"></span></h3>
-                  <p>Bitcoin</p>
-              </div>
-          </div>
-
-          <div class="coin" data-coin="Dogecoin" data-symbol="DOGE" data-price="$0.08" data-image="{% static 'frontend/images/dogecoin.png' %}" data-wallet="dogecoin:D8zsw1e...">
-              <img src="{% static 'frontend/images/dogecoin.png' %}" alt="dogecoin">
-              <div>
-                  <h3>$ <span id="dogecoin"></span></h3>
-                  <p>Dogecoin</p>
-              </div>
-          </div>
-
-          <div class="coin" data-coin="Ethereum" data-symbol="ETH" data-price="$3,100" data-image="{% static 'frontend/images/ethereum.png' %}" data-wallet="ethereum:0x742d35Cc6634C0532925a3b844Bc454e4438f44e">
-              <img src="{% static 'frontend/images/ethereum.png' %}" alt="ethereum">
-              <div>
-                  <h3>$ <span id="ethereum"></span></h3>
-                  <p>Ethereum</p>
-              </div>
-          </div>
+      <h2 class="mt-6">Top Coins</h2>
+      <div class="coin-list" id="top-coins">
+        <!-- Top 3 coins will be populated by JS -->
       </div>
 
-     {# include the payment modal component so the scripts can find it #}
      {% include 'frontend/components/modal_payment.html' %}
 
   </div>
@@ -56,21 +34,56 @@
 
 {% block scripts %}
 <script>
-// CSRF helper for fetch APIs (Django)
-function getCookie(name){
-  var cookieValue = null;
-  if (document.cookie && document.cookie !== ''){
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++){
-      var cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')){
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
+const topCoins = [
+  {id:"bitcoin", name:"Bitcoin", symbol:"BTC", image:"{% static 'frontend/images/bitcoin.png' %}", wallet:"bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"},
+  {id:"ethereum", name:"Ethereum", symbol:"ETH", image:"{% static 'frontend/images/ethereum.png' %}", wallet:"ethereum:0x742d35Cc6634C0532925a3b844Bc454e4438f44e"},
+  {id:"dogecoin", name:"Dogecoin", symbol:"DOGE", image:"{% static 'frontend/images/dogecoin.png' %}", wallet:"dogecoin:D8zsw1e..."}
+];
+
+async function fetchCryptoPrice(symbol){
+  try {
+    const res = await fetch(`https://api.coinbase.com/v2/prices/${symbol}-USD/spot`);
+    const data = await res.json();
+    return parseFloat(data.data.amount);
+  } catch(e){ console.error('Fetch failed', symbol, e); return 0; }
 }
-var csrftoken = getCookie('csrftoken');
+
+async function fetchForexRate(){
+  try {
+    const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=KES");
+    const data = await res.json();
+    return data?.rates?.KES || 150;
+  } catch(e){ console.error('Forex fetch failed', e); return 150; }
+}
+
+async function populateTopCoins(){
+  const container = document.getElementById('top-coins');
+  container.innerHTML = '';
+  const rate = await fetchForexRate();
+
+  for(const coin of topCoins){
+    const usd = await fetchCryptoPrice(coin.symbol);
+    const kes = Math.max(1, Math.round(usd * rate));
+    const div = document.createElement('div');
+    div.className = 'coin';
+    div.dataset.coin = coin.name;
+    div.dataset.symbol = coin.symbol;
+    div.dataset.wallet = coin.wallet;
+    div.dataset.image = coin.image;
+    div.innerHTML = `
+      <img src="${coin.image}" alt="${coin.name}">
+      <div>
+        <h3>$ <span>${usd.toFixed(2)}</span></h3>
+        <p>${coin.name}</p>
+        <p>KES: ${kes.toLocaleString()}</p>
+      </div>
+    `;
+    // trigger modal via CustomEvent so modal can handle it
+    div.addEventListener('click', ()=>window.dispatchEvent(new CustomEvent('coinSelected',{detail: coin})));
+    container.appendChild(div);
+  }
+}
+
+populateTopCoins();
 </script>
 {% endblock %}
