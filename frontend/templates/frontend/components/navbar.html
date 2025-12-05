@@ -1,7 +1,7 @@
 {% load static %}
 <nav class="site-nav" role="navigation" aria-label="Main navigation">
   <div class="site-nav__inner container">
-    <a class="site-nav__brand" href="/">
+    <a class="site-nav__brand" href="{% url 'market' %}">
       <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo">
     </a>
 
@@ -10,16 +10,17 @@
     </button>
 
     <ul id="site-nav-links" class="site-nav__links">
-      <li><a href="#">Market</a></li>
-      <li><a href="#">Feature</a></li>
-      <li><a href="#">White Papers</a></li>
-      <li><a href="#">About Us</a></li>
+      <li><a href="{% url 'market' %}">Market</a></li>
+      <li><a href="{% url 'features' %}">Feature</a></li>
+      <li><a href="{% url 'whitepapers' %}">White Papers</a></li>
+      <li><a href="{% url 'about' %}">About Us</a></li>
     </ul>
 
     <div class="site-nav__actions">
-      <a href="/accounts/login/" class="btn-secondary">Login</a>
-      <a href="/payments/history/" class="btn-secondary">History</a>
-      <a href="/dashboard/" class="btn-primary">Dashboard</a>
+      <a href="{% url 'login' %}" class="btn-secondary">Login</a>
+      <a href="{% url 'register' %}" class="btn-secondary">Register</a>
+      <a href="{% url 'payments:history' %}" class="btn-secondary">History</a>
+      <a href="{% url 'dashboard' %}" class="btn-primary">Dashboard</a>
     </div>
   </div>
 </nav>

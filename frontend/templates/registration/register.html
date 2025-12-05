@@ -1,0 +1,26 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:480px; margin:40px auto;">
+  <div class="card">
+    <div class="card-body">
+      <h2>Create an account</h2>
+
+      <form method="post" action="{% url 'register' %}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div style="margin-top:12px;">
+          <button type="submit" class="btn btn-primary">Create account</button>
+        </div>
+      </form>
+
+      <hr />
+      <p>Already have an account? <a href="{% url 'login' %}">Sign in</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,7 +1,20 @@
 {% load static %}
+<div style="margin:16px 0;">
+  <button id="open-payment-demo" class="btn-primary">Open Payment Modal (demo)</button>
+</div>
+
 <div id="payment-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="modal-card">
-    <h3 id="modal-coin">Buy</h3>
+  <div class="modal-card" role="document" aria-labelledby="modal-coin">
+    <!-- Selected coin header -->
+    <div class="modal-header" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <div id="selected-coin-image" style="width:56px;height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:center;background:var(--color-background);border-radius:8px;overflow:hidden;">
+        <!-- image injected here -->
+      </div>
+      <div>
+        <h3 id="selected-coin-name" style="margin:0;font-size:18px;">Buy</h3>
+        <p id="selected-coin-price" class="text-muted" style="margin:0;font-size:13px;">&nbsp;</p>
+      </div>
+    </div>
 
     <div class="form-field">
       <label for="modal-phone" class="form-field__label">Phone number (e.g. 0712345678)</label>
@@ -22,3 +35,123 @@
   </div>
 </div>
 
+<script>
+(function(){
+  var openBtn = document.getElementById('open-payment-demo');
+  var modal = document.getElementById('payment-modal');
+  var cancel = document.getElementById('modal-cancel');
+  var payBtn = document.getElementById('modal-pay');
+  var status = document.getElementById('modal-status');
+
+  var selImage = document.getElementById('selected-coin-image');
+  var selName = document.getElementById('selected-coin-name');
+  var selPrice = document.getElementById('selected-coin-price');
+  var selAmountInput = document.getElementById('modal-amount');
+  var selPhoneInput = document.getElementById('modal-phone');
+
+  if(!modal) return;
+
+  function openModal(){
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function closeModal(){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+    // reset status
+    if(status) status.textContent = '';
+  }
+
+  // Utility: safely set inner HTML for image
+  function setCoinImage(src, alt){
+    if(!selImage) return;
+    if(!src) { selImage.innerHTML = ''; return; }
+    // create image element
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = alt || '';
+    img.style.width = '48px'; img.style.height = '48px'; img.style.objectFit = 'contain';
+    selImage.innerHTML = '';
+    selImage.appendChild(img);
+  }
+
+  // Populate modal fields given a card element
+  function populateFromCard(card){
+    if(!card) return;
+    // Prefer data attributes, fall back to markup
+    var name = card.dataset && card.dataset.coin ? card.dataset.coin : null;
+    var symbol = card.dataset && card.dataset.symbol ? card.dataset.symbol : null;
+    var price = card.dataset && card.dataset.price ? card.dataset.price : null;
+    var image = card.dataset && card.dataset.image ? card.dataset.image : null;
+
+    // Fallbacks: try to find text inside the card
+    if(!name){
+      var elName = card.querySelector('h3') || card.querySelector('h2') || card.querySelector('h4');
+      if(elName) name = elName.textContent.trim();
+    }
+    if(!price){
+      // try common selectors or spans
+      var elPrice = card.querySelector('.price') || card.querySelector('span') || card.querySelector('.coin-price');
+      if(elPrice) price = elPrice.textContent.trim();
+    }
+    if(!image){
+      var elImg = card.querySelector('img');
+      if(elImg) image = elImg.src;
+    }
+
+    // Normalize price (remove extra text)
+    if(price){
+      price = price.replace(/\s+/g,' ');
+    }
+
+    // Update modal UI
+    if(selName) selName.textContent = name ? (symbol ? (name + ' (' + symbol + ')') : name) : 'Buy';
+    if(selPrice) selPrice.textContent = price ? price : '';
+    setCoinImage(image, name);
+
+    // Optionally prefill amount if card had data-amount
+    if(selAmountInput){
+      var prefAmount = card.dataset && card.dataset.amount ? card.dataset.amount : '';
+      selAmountInput.value = prefAmount;
+    }
+    // Clear phone input
+    if(selPhoneInput) selPhoneInput.value = '';
+
+    // Store selected coin info on pay button for later use
+    if(payBtn){
+      payBtn.dataset.coin = name || '';
+      payBtn.dataset.symbol = symbol || '';
+      payBtn.dataset.price = price || '';
+    }
+  }
+
+  // Wire demo open button
+  if(openBtn) openBtn.addEventListener('click', function(ev){
+    // demo: no card, clear modal and open
+    populateFromCard(document.createElement('div'));
+    openModal();
+  });
+
+  if(cancel) cancel.addEventListener('click', closeModal);
+
+  // Note: actual payment initiation and polling is handled in page-level scripts (index.html)
+  // so we intentionally do not attach a pay button handler here to avoid duplicate logic.
+
+  // Attach click listeners to any card-like element: [data-coin], .crypto-card, .coin
+  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-coin], .crypto-card, .coin'));
+  cards.forEach(function(card){
+    card.addEventListener('click', function(e){
+      // Prevent opening modal when clicking buttons inside modal itself
+      if(card.closest && card.closest('#payment-modal')) return;
+      populateFromCard(card);
+      openModal();
+    });
+  });
+
+  // Close modal on click outside modal-card
+  modal.addEventListener('click', function(e){
+    if(e.target === modal) closeModal();
+  });
+
+})();
+</script>
