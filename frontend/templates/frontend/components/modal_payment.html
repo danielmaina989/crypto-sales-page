@@ -81,6 +81,8 @@
   const mpesaPay = document.getElementById('mpesa-pay');
   const mpesaStatus = document.getElementById('mpesa-status');
 
+  let pollingInterval;
+
   function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
   function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 
@@ -154,9 +156,29 @@
     openModal();
   }
 
+  async function recalcMpesaAmount(coinName){
+    const cryptoPrices = await fetchCryptoPrices();
+    let rateKES = await fetchForexRate();
+    if(!rateKES || rateKES <= 0) rateKES = 150;
+    if(cryptoPrices && cryptoPrices[coinName.toLowerCase()]){
+      const usdPrice = cryptoPrices[coinName.toLowerCase()];
+      selPriceUSD.textContent = usdPrice.toFixed(2);
+      selPriceKES.textContent = Math.round(usdPrice*rateKES).toLocaleString();
+      if(mpesaAmount) mpesaAmount.value = Math.max(1, Math.round(usdPrice*rateKES));
+    }
+  }
+
   const cards = document.querySelectorAll('.coin, .crypto-card, [data-coin]');
-  cards.forEach(card=>card.addEventListener('click', ()=>populate(card)));
-  openDemo?.addEventListener('click', ()=>populate(document.createElement('div')));
+  cards.forEach(card=>{
+    card.addEventListener('click', async ()=>{
+      await populate(card);
+      const name = card.dataset?.coin || card.getAttribute?.('data-coin') || '';
+      if(name) recalcMpesaAmount(name);
+    });
+  });
+  openDemo?.addEventListener('click', async ()=>{
+    await populate(document.createElement('div'));
+  });
 
   copyBtn?.addEventListener('click', ()=>{
     if(!walletInput) return;
@@ -164,7 +186,27 @@
     try{ document.execCommand('copy'); copyBtn.textContent='Copied!'; setTimeout(()=>{copyBtn.textContent='Copy';},1200); }catch(e){console.error('copy failed', e);}
   });
 
-  mpesaPay?.addEventListener('click', ()=>{
+  async function checkMpesaStatus(paymentId){
+    try {
+      const res = await fetch(`/payments/status/${paymentId}/`);
+      const data = await res.json();
+      if(data?.status==='SUCCESS'){
+        mpesaStatus.textContent = '✅ Payment confirmed!';
+        clearInterval(pollingInterval);
+        setTimeout(()=>{location.reload();}, 2000);
+      } else if(data?.status==='FAILED'){
+        mpesaStatus.textContent = '❌ Payment failed.';
+        clearInterval(pollingInterval);
+      } else {
+        mpesaStatus.textContent = 'Awaiting confirmation on your phone…';
+      }
+    } catch(e){
+      console.error('Status check failed', e);
+      mpesaStatus.textContent = 'Error checking payment status…';
+    }
+  }
+
+  mpesaPay?.addEventListener('click', async ()=>{
     if(!mpesaPhone || !mpesaAmount){ mpesaStatus.textContent='Phone and amount required.'; return; }
     const phone=mpesaPhone.value.trim();
     const amount=mpesaAmount.value.trim();
@@ -174,14 +216,26 @@
     }
 
     mpesaStatus.textContent='Sending STK Push...';
-    fetch('/payments/initiate/',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRFToken':(function(){var re=/(^|; )csrftoken=([^;]+)/;var m=document.cookie.match(re);return m?decodeURIComponent(m[2]):'';})()},
-      body:JSON.stringify({phone_number:phone, amount:amount})
-    }).then(r=>r.json()).then(res=>{
-      if(!res||!res.success) mpesaStatus.textContent='Error: '+(res?.message||res?.error||'Unknown');
-      else mpesaStatus.textContent='Awaiting confirmation on your phone…';
-    }).catch(err=>{ console.error(err); mpesaStatus.textContent='Network error initiating payment.'; });
+    try{
+      const resp = await fetch('/payments/initiate/',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':(function(){var re=/(^|; )csrftoken=([^;]+)/;var m=document.cookie.match(re);return m?decodeURIComponent(m[2]):'';})()},
+        body:JSON.stringify({phone_number:phone, amount:amount})
+      });
+      const result = await resp.json();
+      if(!result?.success){
+        mpesaStatus.textContent='Error: '+(result?.message||result?.error||'Unknown');
+        return;
+      }
+      mpesaStatus.textContent='Awaiting confirmation on your phone…';
+      const paymentId = result.payment_id; // backend must return this
+
+      pollingInterval = setInterval(()=>checkMpesaStatus(paymentId), 3000);
+
+    }catch(err){
+      console.error(err);
+      mpesaStatus.textContent='Network error initiating payment.';
+    }
   });
 
 })();
