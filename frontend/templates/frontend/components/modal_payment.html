@@ -1,55 +1,84 @@
 {% load static %}
+
+<!-- Combined MPesa + Crypto Payment Modal Component -->
 <div style="margin:16px 0;">
   <button id="open-payment-demo" class="btn-primary">Open Payment Modal (demo)</button>
 </div>
 
-<div id="payment-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="modal-card" role="document" aria-labelledby="modal-coin">
-    <!-- Selected coin header -->
-    <div class="modal-header" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-      <div id="selected-coin-image" style="width:56px;height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:center;background:var(--color-background);border-radius:8px;overflow:hidden;">
-        <!-- image injected here -->
+<div id="payment-modal" class="payment-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="payment-modal-content">
+    <button id="payment-close" class="close-btn" aria-label="Close">×</button>
+
+    <div class="payment-header">
+      <div id="selected-coin-image"></div>
+      <h2 id="selected-coin-name">Buy</h2>
+    </div>
+
+    <p class="price">Price: <span id="selected-coin-price"></span></p>
+
+    <!-- PAYMENT METHOD SWITCHER -->
+    <div class="payment-method-tabs">
+      <button class="tab-btn active" data-tab="mpesa">Pay with MPesa</button>
+      <button class="tab-btn" data-tab="crypto">Pay with Crypto</button>
+    </div>
+
+    <!-- MPESA SECTION -->
+    <div id="tab-mpesa" class="tab-section active">
+      <div class="form-field">
+        <label for="mpesa-phone">Phone Number (e.g. 0712345678)</label>
+        <input id="mpesa-phone" type="text" class="form-control">
       </div>
-      <div>
-        <h3 id="selected-coin-name" style="margin:0;font-size:18px;">Buy</h3>
-        <p id="selected-coin-price" class="text-muted" style="margin:0;font-size:13px;">&nbsp;</p>
+
+      <div class="form-field">
+        <label for="mpesa-amount">Amount (KES)</label>
+        <input id="mpesa-amount" type="number" class="form-control">
+      </div>
+
+      <button id="mpesa-pay" class="btn-primary">Pay with MPesa</button>
+      <div id="mpesa-status" class="status"></div>
+    </div>
+
+    <!-- CRYPTO SECTION -->
+    <div id="tab-crypto" class="tab-section">
+      <div class="wallet-section">
+        <label for="wallet-address">Wallet Address</label>
+        <div class="wallet-row">
+          <input type="text" id="wallet-address" readonly aria-label="Wallet address">
+          <button id="copy-wallet" class="copy-btn" aria-label="Copy wallet address">Copy</button>
+        </div>
+      </div>
+
+      <div class="qr-wrapper">
+        <canvas id="qr-code"></canvas>
       </div>
     </div>
 
-    <div class="form-field">
-      <label for="modal-phone" class="form-field__label">Phone number (e.g. 0712345678)</label>
-      <input id="modal-phone" class="form-control" type="text" />
-    </div>
-
-    <div class="form-field">
-      <label for="modal-amount" class="form-field__label">Amount (USD)</label>
-      <input id="modal-amount" class="form-control" type="number" step="0.01" />
-    </div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-      <button id="modal-cancel" class="btn-secondary">Cancel</button>
-      <button id="modal-pay" class="btn-primary btn-loading">Pay</button>
-    </div>
-
-    <div id="modal-status" class="text-muted" style="margin-top:10px;color:#333"></div>
   </div>
 </div>
 
 <script>
 (function(){
-  var openBtn = document.getElementById('open-payment-demo');
+  // Elements
   var modal = document.getElementById('payment-modal');
-  var cancel = document.getElementById('modal-cancel');
-  var payBtn = document.getElementById('modal-pay');
-  var status = document.getElementById('modal-status');
+  var openDemo = document.getElementById('open-payment-demo');
+  var closeBtn = document.getElementById('payment-close');
 
-  var selImage = document.getElementById('selected-coin-image');
+  var tabBtns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+  var mpesaTab = document.getElementById('tab-mpesa');
+  var cryptoTab = document.getElementById('tab-crypto');
+
   var selName = document.getElementById('selected-coin-name');
+  var selImage = document.getElementById('selected-coin-image');
   var selPrice = document.getElementById('selected-coin-price');
-  var selAmountInput = document.getElementById('modal-amount');
-  var selPhoneInput = document.getElementById('modal-phone');
 
-  if(!modal) return;
+  var walletInput = document.getElementById('wallet-address');
+  var copyBtn = document.getElementById('copy-wallet');
+  var qrCanvas = document.getElementById('qr-code');
+
+  var mpesaPhone = document.getElementById('mpesa-phone');
+  var mpesaAmount = document.getElementById('mpesa-amount');
+  var mpesaPay = document.getElementById('mpesa-pay');
+  var mpesaStatus = document.getElementById('mpesa-status');
 
   function openModal(){
     modal.classList.add('open');
@@ -58,100 +87,123 @@
   function closeModal(){
     modal.classList.remove('open');
     modal.setAttribute('aria-hidden','true');
-    // reset status
-    if(status) status.textContent = '';
   }
 
-  // Utility: safely set inner HTML for image
-  function setCoinImage(src, alt){
-    if(!selImage) return;
-    if(!src) { selImage.innerHTML = ''; return; }
-    // create image element
-    var img = document.createElement('img');
-    img.src = src;
-    img.alt = alt || '';
-    img.style.width = '48px'; img.style.height = '48px'; img.style.objectFit = 'contain';
-    selImage.innerHTML = '';
-    selImage.appendChild(img);
-  }
+  if(closeBtn) closeBtn.addEventListener('click', closeModal);
+  if(modal) modal.addEventListener('click', function(e){ if(e.target === modal) closeModal(); });
 
-  // Populate modal fields given a card element
-  function populateFromCard(card){
-    if(!card) return;
-    // Prefer data attributes, fall back to markup
-    var name = card.dataset && card.dataset.coin ? card.dataset.coin : null;
-    var symbol = card.dataset && card.dataset.symbol ? card.dataset.symbol : null;
-    var price = card.dataset && card.dataset.price ? card.dataset.price : null;
-    var image = card.dataset && card.dataset.image ? card.dataset.image : null;
-
-    // Fallbacks: try to find text inside the card
-    if(!name){
-      var elName = card.querySelector('h3') || card.querySelector('h2') || card.querySelector('h4');
-      if(elName) name = elName.textContent.trim();
-    }
-    if(!price){
-      // try common selectors or spans
-      var elPrice = card.querySelector('.price') || card.querySelector('span') || card.querySelector('.coin-price');
-      if(elPrice) price = elPrice.textContent.trim();
-    }
-    if(!image){
-      var elImg = card.querySelector('img');
-      if(elImg) image = elImg.src;
-    }
-
-    // Normalize price (remove extra text)
-    if(price){
-      price = price.replace(/\s+/g,' ');
-    }
-
-    // Update modal UI
-    if(selName) selName.textContent = name ? (symbol ? (name + ' (' + symbol + ')') : name) : 'Buy';
-    if(selPrice) selPrice.textContent = price ? price : '';
-    setCoinImage(image, name);
-
-    // Optionally prefill amount if card had data-amount
-    if(selAmountInput){
-      var prefAmount = card.dataset && card.dataset.amount ? card.dataset.amount : '';
-      selAmountInput.value = prefAmount;
-    }
-    // Clear phone input
-    if(selPhoneInput) selPhoneInput.value = '';
-
-    // Store selected coin info on pay button for later use
-    if(payBtn){
-      payBtn.dataset.coin = name || '';
-      payBtn.dataset.symbol = symbol || '';
-      payBtn.dataset.price = price || '';
-    }
-  }
-
-  // Wire demo open button
-  if(openBtn) openBtn.addEventListener('click', function(ev){
-    // demo: no card, clear modal and open
-    populateFromCard(document.createElement('div'));
-    openModal();
-  });
-
-  if(cancel) cancel.addEventListener('click', closeModal);
-
-  // Note: actual payment initiation and polling is handled in page-level scripts (index.html)
-  // so we intentionally do not attach a pay button handler here to avoid duplicate logic.
-
-  // Attach click listeners to any card-like element: [data-coin], .crypto-card, .coin
-  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-coin], .crypto-card, .coin'));
-  cards.forEach(function(card){
-    card.addEventListener('click', function(e){
-      // Prevent opening modal when clicking buttons inside modal itself
-      if(card.closest && card.closest('#payment-modal')) return;
-      populateFromCard(card);
-      openModal();
+  // TAB SWITCHING
+  tabBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      tabBtns.forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      if(this.dataset.tab === 'crypto'){
+        mpesaTab.classList.remove('active');
+        cryptoTab.classList.add('active');
+      } else {
+        cryptoTab.classList.remove('active');
+        mpesaTab.classList.add('active');
+      }
     });
   });
 
-  // Close modal on click outside modal-card
-  modal.addEventListener('click', function(e){
-    if(e.target === modal) closeModal();
+  // Populate modal with clicked coin data
+  function populate(card){
+    if(!card) return;
+    var name = card.dataset && card.dataset.coin ? card.dataset.coin : (card.getAttribute && card.getAttribute('data-coin')) || '';
+    var price = card.dataset && card.dataset.price ? card.dataset.price : (card.getAttribute && card.getAttribute('data-price')) || '';
+    var image = (card.querySelector && card.querySelector('img')) ? card.querySelector('img').src : (card.dataset && card.dataset.image) || '';
+    var wallet = card.dataset && card.dataset.wallet ? card.dataset.wallet : (card.getAttribute && card.getAttribute('data-wallet')) || '';
+
+    selName.textContent = name ? name : 'Buy';
+    selPrice.textContent = price ? price : '';
+    selImage.innerHTML = image ? '<img src="'+image+'" width="60" alt="'+(name||'coin')+'" />' : '';
+
+    if(walletInput) walletInput.value = wallet;
+
+    // Generate QR if library available
+    try{
+      if(typeof QRCode !== 'undefined' && qrCanvas){
+        QRCode.toCanvas(qrCanvas, wallet || '', { margin: 2 });
+      } else if(typeof QR !== 'undefined' && qrCanvas && typeof QR.toCanvas === 'function'){
+        QR.toCanvas(qrCanvas, wallet || '');
+      }
+    }catch(err){ console.error('QR gen failed', err); if(qrCanvas && qrCanvas.getContext) try{ qrCanvas.getContext('2d').clearRect(0,0,qrCanvas.width, qrCanvas.height); }catch(e){} }
+
+    openModal();
+  }
+
+  // Attach to coin cards (delegated to existing .coin elements)
+  var cards = document.querySelectorAll('.coin, .crypto-card, [data-coin]');
+  cards.forEach(function(card){
+    card.addEventListener('click', function(){ populate(card); });
   });
+
+  if(openDemo) openDemo.addEventListener('click', function(){ populate(document.createElement('div')) });
+
+  // COPY WALLET
+  if(copyBtn){
+    copyBtn.addEventListener('click', function(){
+      if(!walletInput) return;
+      walletInput.select();
+      try{ document.execCommand('copy'); copyBtn.textContent = 'Copied!'; setTimeout(function(){ copyBtn.textContent = 'Copy'; }, 1200); }catch(e){ console.error('copy failed', e); }
+    });
+  }
+
+  // MPESA PAYMENT (PATCHED)
+  if (mpesaPay) {
+    mpesaPay.addEventListener('click', function () {
+
+      if (!mpesaPhone || !mpesaAmount) {
+        if (mpesaStatus) mpesaStatus.textContent = 'Phone and amount required.';
+        return;
+      }
+
+      var phone = mpesaPhone.value.trim();
+      var amount = mpesaAmount.value.trim();
+      var coinName = selName.textContent || "Crypto"; // ensure safe value
+
+      if (!phone || !amount) {
+        if (mpesaStatus) mpesaStatus.textContent = 'Phone and amount required.';
+        return;
+      }
+
+      mpesaStatus.textContent = 'Sending STK Push...';
+
+      fetch('/payments/initiate/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': (function () {
+            var re = /(^|; )csrftoken=([^;]+)/;
+            var m = document.cookie.match(re);
+            return m ? decodeURIComponent(m[2]) : '';
+          })()
+        },
+        body: JSON.stringify({
+          phone_number: phone,
+          amount: amount,
+          account_ref: coinName,
+          description: "Purchase " + coinName
+        })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (!res || !res.success) {
+            if (mpesaStatus) mpesaStatus.textContent =
+              'Error: ' + (res && (res.message || res.error) || 'Unknown');
+            return;
+          }
+          if (mpesaStatus) mpesaStatus.textContent =
+            'Awaiting confirmation on your phone…';
+        })
+        .catch(function (err) {
+          console.error(err);
+          if (mpesaStatus) mpesaStatus.textContent =
+            'Network error initiating payment.';
+        });
+    });
+  }
 
 })();
 </script>

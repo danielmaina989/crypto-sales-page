@@ -21,7 +21,7 @@
       </div>
 
       <div class="coin-list">
-          <div class="coin" data-coin="Bitcoin" data-symbol="BTC" data-price="$42,100" data-image="{% static 'frontend/images/bitcoin.png' %}">
+          <div class="coin" data-coin="Bitcoin" data-symbol="BTC" data-price="$42,100" data-image="{% static 'frontend/images/bitcoin.png' %}" data-wallet="bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa">
               <img src="{% static 'frontend/images/bitcoin.png' %}" alt="bitcoin">
               <div>
                   <h3>$ <span id="bitcoin"></span></h3>
@@ -29,7 +29,7 @@
               </div>
           </div>
 
-          <div class="coin" data-coin="Dogecoin" data-symbol="DOGE" data-price="$0.08" data-image="{% static 'frontend/images/dogecoin.png' %}">
+          <div class="coin" data-coin="Dogecoin" data-symbol="DOGE" data-price="$0.08" data-image="{% static 'frontend/images/dogecoin.png' %}" data-wallet="dogecoin:D8zsw1e...">
               <img src="{% static 'frontend/images/dogecoin.png' %}" alt="dogecoin">
               <div>
                   <h3>$ <span id="dogecoin"></span></h3>
@@ -37,7 +37,7 @@
               </div>
           </div>
 
-          <div class="coin" data-coin="Ethereum" data-symbol="ETH" data-price="$3,100" data-image="{% static 'frontend/images/ethereum.png' %}">
+          <div class="coin" data-coin="Ethereum" data-symbol="ETH" data-price="$3,100" data-image="{% static 'frontend/images/ethereum.png' %}" data-wallet="ethereum:0x742d35Cc6634C0532925a3b844Bc454e4438f44e">
               <img src="{% static 'frontend/images/ethereum.png' %}" alt="ethereum">
               <div>
                   <h3>$ <span id="ethereum"></span></h3>
@@ -56,107 +56,21 @@
 
 {% block scripts %}
 <script>
-(function(){
-  function $(s){return document.querySelector(s)}
-  function $all(s){return Array.from(document.querySelectorAll(s))}
-
-  // Cache frequently used nodes (modal may be included via template)
-  const modal = $('#payment-modal')
-  const modalStatus = modal ? modal.querySelector('#modal-status') : null
-  const modalPhone = modal ? modal.querySelector('#modal-phone') : null
-  const modalAmount = modal ? modal.querySelector('#modal-amount') : null
-  const modalPay = modal ? modal.querySelector('#modal-pay') : null
-  const modalCancel = modal ? modal.querySelector('#modal-cancel') : null
-
-  // Helper to toggle loading state on the pay button
-  function setLoading(isLoading){
-    if(!modalPay) return
-    if(isLoading){
-      modalPay.classList.add('loading')
-      modalPay.disabled = true
-    } else {
-      modalPay.classList.remove('loading')
-      modalPay.disabled = false
+// CSRF helper for fetch APIs (Django)
+function getCookie(name){
+  var cookieValue = null;
+  if (document.cookie && document.cookie !== ''){
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++){
+      var cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')){
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
     }
   }
-
-  // Helper to open/close modal (manage aria-hidden)
-  function openModal(){ if(!modal) return; modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
-  function closeModal(){ if(!modal) return; modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
-
-  let selectedCoin = null
-  $all('.coin').forEach(function(el){
-    el.addEventListener('click', function(){
-      selectedCoin = el.getAttribute('data-coin') || 'unknown'
-      if(modal){ modal.querySelector('#modal-coin').textContent = 'Buy ' + selectedCoin }
-      if(modalPhone) modalPhone.value = ''
-      if(modalAmount) modalAmount.value = ''
-      if(modalStatus) modalStatus.textContent = ''
-      openModal()
-    })
-  })
-
-  if(modalCancel){ modalCancel.addEventListener('click', function(){ closeModal(); setLoading(false) }) }
-
-  if(modalPay){
-    modalPay.addEventListener('click', function(){
-      const payBtn = modalPay
-      const phone = modalPhone ? modalPhone.value.trim() : ''
-      const amount = modalAmount ? modalAmount.value.trim() : ''
-      if(!phone || !amount){ if(modalStatus) modalStatus.textContent = 'Phone and amount are required.'; return }
-
-      // start loading
-      setLoading(true)
-      if(modalStatus) modalStatus.textContent = 'Initiating payment...'
-
-      fetch('/payments/initiate/', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({phone_number: phone, amount: amount, account_ref: selectedCoin, description: selectedCoin + ' purchase'})
-      }).then(function(r){
-        if(!r.ok){
-          return r.json().catch(function(){ throw new Error('Server error: ' + r.status) }).then(function(err){ throw new Error(err.message || err.error || 'Server error') })
-        }
-        return r.json()
-      }).then(function(data){
-        if(!data.success){
-          if(modalStatus) modalStatus.textContent = 'Failed to initiate: ' + (data.message || data.error || JSON.stringify(data))
-          setLoading(false)
-          return
-        }
-        const checkout = data.checkout_request_id || data.checkoutRequestID || data.raw_response && data.raw_response.CheckoutRequestID
-        if(!checkout){ if(modalStatus) modalStatus.textContent = 'No checkout id returned; contact support.'; setLoading(false); return }
-
-        if(modalStatus) modalStatus.textContent = 'Waiting for payment confirmation...'
-
-        // poll status
-        let attempts = 0
-        const maxAttempts = 40
-        const poll = function(){
-          attempts++
-          fetch('/payments/status/' + encodeURIComponent(checkout) + '/')
-            .then(r=>r.json())
-            .then(function(s){
-              if(s.success && s.status === 'success'){
-                if(modalStatus) modalStatus.textContent = 'Payment successful! Receipt: ' + (s.receipt || '')
-                setTimeout(function(){ closeModal(); setLoading(false) }, 2000)
-              } else if(s.success && s.status === 'failed'){
-                if(modalStatus) modalStatus.textContent = 'Payment failed: ' + (s.error || 'Unknown')
-                setLoading(false)
-              } else if(attempts < maxAttempts){
-                setTimeout(poll, 3000)
-              } else {
-                if(modalStatus) modalStatus.textContent = 'Payment is taking longer than expected. Please check later.'
-                setLoading(false)
-              }
-            }).catch(function(err){ console.error(err); if(attempts < maxAttempts) setTimeout(poll, 3000); else { if(modalStatus) modalStatus.textContent = 'Network error while checking payment. Try again later.'; setLoading(false) } })
-        }
-        setTimeout(poll, 2000)
-
-      }).catch(function(err){ console.error(err); if(modalStatus) modalStatus.textContent = 'Error initiating payment: ' + (err.message || err); setLoading(false) })
-    })
-  }
-
-})();
+  return cookieValue;
+}
+var csrftoken = getCookie('csrftoken');
 </script>
 {% endblock %}
