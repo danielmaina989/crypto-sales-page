@@ -180,6 +180,21 @@
     await populate(document.createElement('div'));
   });
 
+  // Listen for global coinSelected events dispatched by index.js (dynamic cards)
+  window.addEventListener('coinSelected', async (e) => {
+    try {
+      const coin = e && e.detail ? e.detail : null;
+      if(!coin) return;
+      // Create a lightweight element with dataset the populate() function expects
+      const temp = document.createElement('div');
+      temp.dataset.coin = coin.name || coin.id || '';
+      temp.dataset.image = coin.image || '';
+      temp.dataset.wallet = coin.wallet || '';
+      await populate(temp);
+      if(coin.name) recalcMpesaAmount(coin.name);
+    } catch(err){ console.error('coinSelected handler failed', err); }
+  });
+
   copyBtn?.addEventListener('click', ()=>{
     if(!walletInput) return;
     walletInput.select();
