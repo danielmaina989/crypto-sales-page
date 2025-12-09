@@ -5,28 +5,137 @@
 
 {% block content %}
 <div class="container">
-  <h2>Payment History</h2>
+
+  <div class="row" style="align-items:center; margin-bottom:20px;">
+    <div>
+      <h2>Payment History</h2>
+    </div>
+    <div class="site-actions">
+      <a href="{% url 'home' %}" class="btn-secondary">Back to home</a>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <form method="get" class="filter-bar card">
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+
+      <!-- Search -->
+      <label for="filter-q" class="sr-only">Search</label>
+      <input
+        id="filter-q"
+        type="text"
+        name="q"
+        value="{{ request.GET.q }}"
+        placeholder="Search phone, receipt, ID..."
+        class="input"
+        style="flex:1; min-width:200px;"
+      />
+
+      <!-- Status Filter -->
+      <label for="filter-status" class="sr-only">Status</label>
+      <select id="filter-status" name="status" class="input">
+        <option value="">All statuses</option>
+        <option value="success" {% if request.GET.status == 'success' %}selected{% endif %}>Success</option>
+        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+        <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Failed</option>
+      </select>
+
+      <!-- Date From -->
+      <label for="filter-from" class="sr-only">From date</label>
+      <input id="filter-from" type="date" name="from" value="{{ request.GET.from }}" class="input" />
+
+      <!-- Date To -->
+      <label for="filter-to" class="sr-only">To date</label>
+      <input id="filter-to" type="date" name="to" value="{{ request.GET.to }}" class="input" />
+
+      <button class="btn-primary">Apply</button>
+      <a href="{% url 'payments:history' %}" class="btn-secondary">Reset</a>
+    </div>
+  </form>
+
+  <!-- EXPORT BUTTONS -->
+  <div class="card" style="display:flex; gap:12px; align-items:center; margin:16px 0;">
+    <div style="margin-left:auto; display:flex; gap:12px;">
+      <a href="?export=csv" class="btn-secondary">Export CSV</a>
+      <a href="?export=pdf" class="btn-secondary">Export PDF</a>
+    </div>
+  </div>
 
   {% if payments %}
-    <div class="row">
+    <div class="payments-grid">
+
       {% for p in payments %}
-        <div class="col">
-          {% include 'frontend/components/card.html' with title=p.get_status_display subtitle=p.created_at %}
-            {% comment %} provide body and footer via block replacements by overriding variables is not supported in include; instead render inline here {% endcomment %}
-            <div class="card__body">
-              <p><strong>Amount:</strong> KES {{ p.amount }}</p>
-              <p><strong>Phone:</strong> {{ p.phone_number }}</p>
-              <p><strong>Receipt:</strong> {{ p.mpesa_receipt_number|default:'-' }}</p>
-              <p><strong>Note:</strong> {{ p.description|default:'-' }}</p>
+        <div class="payment-card card" data-payment-id="{{ p.id }}" aria-label="Payment {{ p.id }}">
+
+          <div class="card__header">
+            <div style="display:flex; align-items:center; gap:12px;">
+              {% if p.status == 'success' %}
+                <img src="{% static 'frontend/icons/check-circle.svg' %}" width="20" alt="success">
+              {% elif p.status == 'pending' %}
+                <img src="{% static 'frontend/icons/clock.svg' %}" width="20" alt="pending">
+              {% else %}
+                <img src="{% static 'frontend/icons/x-circle.svg' %}" width="20" alt="failed">
+              {% endif %}
+
+              <div>
+                <h3 class="card__title">KES {{ p.amount }}</h3>
+                <div class="card__meta">{{ p.created_at|date:"M d, Y H:i" }}</div>
+              </div>
             </div>
-            <div class="card__footer">
-              <a href="#" class="btn-secondary">Details</a>
+
+            <div class="card__meta">#{{ p.id }}</div>
+          </div>
+
+          <div class="card__body">
+            {% if p.mpesa_receipt_number %}
+              <p class="text-muted"><strong>Receipt:</strong> {{ p.mpesa_receipt_number|slice:"-8:" }}</p>
+            {% endif %}
+            <p class="text-muted"><strong>Status:</strong>
+              {% if p.status == 'success' %}
+                <span class="badge badge-success">Success</span>
+              {% elif p.status == 'pending' %}
+                <span class="badge badge-pending">Pending</span>
+              {% else %}
+                <span class="badge badge-failed">Failed</span>
+              {% endif %}
+            </p>
+          </div>
+
+          <div class="card__footer">
+            <a href="{% url 'payments:history_detail' p.id %}" class="btn-secondary">Details</a>
+            <div class="text-muted" aria-hidden="true">
+              {% if p.status == 'pending' %}
+                Awaiting
+              {% elif p.status == 'success' %}
+                Confirmed
+              {% else %}
+                Failed
+              {% endif %}
             </div>
           </div>
+
+        </div>
       {% endfor %}
+
     </div>
+
+    <div class="pagination" aria-label="pagination">
+      {% if payments.has_previous %}
+        <a href="?page={{ payments.previous_page_number }}" class="btn-secondary">Previous</a>
+      {% endif %}
+
+      <span>Page {{ payments.number }} of {{ payments.paginator.num_pages }}</span>
+
+      {% if payments.has_next %}
+        <a href="?page={{ payments.next_page_number }}" class="btn-secondary">Next</a>
+      {% endif %}
+    </div>
+
   {% else %}
-    <p>No payments found.</p>
+    <div class="empty-state">
+      <h3>No payments found</h3>
+      <p>You haven't made any transactions yet.</p>
+    </div>
   {% endif %}
 
 </div>
