@@ -1,0 +1,166 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Payment Details{% endblock %}
+
+{% block page_css %}
+<!-- page-specific minimal overrides are in theme.css -->
+{% endblock %}
+
+{% block content %}
+<div class="container payment-detail">
+
+  <div class="detail-header">
+    <div id="selected-coin-image"> <!-- placeholder for future coin image --> </div>
+    <div>
+      <h2 class="detail-title">Payment #{{ payment.id }}</h2>
+      <div class="text-muted">Created: {{ payment.created_at|date:"M d, Y H:i" }}</div>
+    </div>
+    <div class="detail-actions">
+      <a href="{% url 'payments:history' %}" class="btn-secondary">← Back to history</a>
+      <a href="/" class="btn-secondary">Home</a>
+    </div>
+  </div>
+
+  <div class="detail-grid">
+    <div class="detail-left">
+
+      <div class="card">
+        <div class="card__header">
+          <div>
+            <h3 class="card__title">Overview</h3>
+            <div class="card__meta">Checkout ID: <strong>{{ payment.checkout_request_id|default:'-' }}</strong></div>
+          </div>
+          <div class="card__meta">Status:
+            {% if payment.status == 'success' %}
+              <span class="badge badge-success">Success</span>
+            {% elif payment.status == 'pending' %}
+              <span class="badge badge-pending">Pending</span>
+            {% else %}
+              <span class="badge badge-failed">Failed</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card__body meta-list">
+          <div class="meta-item"><strong>Amount</strong><span>KES {{ payment.amount }}</span></div>
+          <div class="meta-item"><strong>Phone</strong><span>{{ payment.phone_number }}</span></div>
+          <div class="meta-item"><strong>MerchantRequestID</strong><span>{{ payment.merchant_request_id|default:'-' }}</span></div>
+          <div class="meta-item"><strong>Mpesa Receipt</strong>
+            <span>
+              {{ payment.mpesa_receipt_number|default:'-' }}
+              {% if payment.mpesa_receipt_number %}
+                <button class="copy-btn" data-copy="{{ payment.mpesa_receipt_number }}" title="Copy receipt">Copy</button>
+              {% endif %}
+            </span>
+          </div>
+          <div class="meta-item"><strong>Error code</strong><span>{{ payment.error_code|default:'-' }}</span></div>
+          <div class="meta-item"><strong>Error message</strong><span>{{ payment.error_message|default:'-' }}</span></div>
+        </div>
+
+        <div class="card__footer">
+          {% if payment.status == 'pending' %}
+            <form method="post" action="{% url 'payments:payments-simulate-callback' payment.checkout_request_id %}">
+              {% csrf_token %}
+              <button class="btn-primary">Simulate Callback</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <h3>Callback Raw Data</h3>
+        <div class="raw-controls">
+          <button id="toggle-raw" class="btn-secondary">Toggle JSON</button>
+          <button id="copy-raw" class="btn-secondary">Copy JSON</button>
+        </div>
+        <pre id="raw-box" class="raw-box">{% if payment.callback_raw_data %}{{ payment.callback_raw_data|safe }}{% else %}-{% endif %}</pre>
+      </div>
+
+    </div>
+
+    <aside class="detail-right">
+      <div class="card">
+        <div class="card__header"><h3 class="card__title">Summary</h3></div>
+        <div class="card__body">
+          <p><strong>Status:</strong> {{ payment.get_status_display }}</p>
+          <p><strong>Created:</strong> {{ payment.created_at|date:"M d, Y H:i" }}</p>
+          <p><strong>Updated:</strong> {{ payment.updated_at|date:"M d, Y H:i" }}</p>
+          <p><strong>Receipt:</strong> {{ payment.mpesa_receipt_number|default:'-' }}</p>
+        </div>
+        <div class="card__footer">
+          <a href="{% url 'payments:history' %}" class="btn-secondary">Back to history</a>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+</div>
+
+{# Embed callback JSON safely for client-side pretty-printing and copying #}
+{% if payment.callback_raw_data %}
+  {{ payment.callback_raw_data|json_script:"callback-data" }}
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  // Copy button for small values
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      const val = this.getAttribute('data-copy');
+      if(!val) return;
+      navigator.clipboard.writeText(val).then(()=>{
+        const orig = this.textContent;
+        this.textContent = 'Copied';
+        setTimeout(()=> this.textContent = orig, 1200);
+      }).catch(()=> alert('Copy failed'));
+    });
+  });
+
+  // Raw JSON handling: get embedded data if present
+  var rawBox = document.getElementById('raw-box');
+  var toggle = document.getElementById('toggle-raw');
+  var copyRaw = document.getElementById('copy-raw');
+  var rawData = null;
+  try{
+    var script = document.getElementById('callback-data');
+    if(script) rawData = JSON.parse(script.textContent || '{}');
+  }catch(e){ console.error('Invalid embedded JSON', e); }
+
+  if(toggle){
+    toggle.addEventListener('click', function(){
+      if(!rawData){
+        alert('No callback data available');
+        return;
+      }
+      // toggle pretty / compact
+      if(this.dataset.state === 'pretty'){
+        rawBox.textContent = JSON.stringify(rawData);
+        this.dataset.state = '';
+        this.textContent = 'Pretty JSON';
+      } else {
+        try{
+          rawBox.textContent = JSON.stringify(rawData, null, 2);
+          this.dataset.state = 'pretty';
+          this.textContent = 'Compact JSON';
+        }catch(e){ rawBox.textContent = String(rawData); }
+      }
+    });
+  }
+
+  if(copyRaw){
+    copyRaw.addEventListener('click', function(){
+      const text = rawBox ? rawBox.textContent : '';
+      if(!text) return alert('Nothing to copy');
+      navigator.clipboard.writeText(text).then(()=>{
+        const orig = this.textContent; this.textContent='Copied'; setTimeout(()=> this.textContent=orig,1200);
+      }).catch(()=> alert('Copy failed'));
+    });
+  }
+})();
+</script>
+{% endblock %}

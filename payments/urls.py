@@ -6,7 +6,7 @@ from .views import status, webhook
 from .views.initiate import initiate_payment
 from .views.status_api import payment_status
 from .views.simulate_callback import simulate_callback
-from .views_history import payment_history
+from .views_history import payment_history, payment_detail
 
 urlpatterns = [
     path('status/', status, name='payments-status'),
@@ -16,4 +16,5 @@ urlpatterns = [
     path('status/<str:checkout_id>/', payment_status, name='payments-status-api'),
     path('simulate_callback/<str:checkout_id>/', simulate_callback, name='payments-simulate-callback'),
     path('history/', payment_history, name='history'),
+    path('history/<int:pk>/', payment_detail, name='history_detail'),
 ]
