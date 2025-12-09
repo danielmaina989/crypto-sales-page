@@ -80,25 +80,8 @@ Terminal 3 — Celery Worker
 celery -A core worker -l info
 
 Terminal 4 — Ngrok (for callbacks)
-# If your Django dev server runs on the default port 8000:
 ngrok http 8000
 
-# If you run the server on port 8080 (or another port), start ngrok for that port instead:
-ngrok http 8080
-
-# Note: Use the ngrok forwarding URL (https://<your-subdomain>.ngrok-free.dev) as your MPESA callback URL and add that host to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` in your `.env`.
-
-
-## Quick run with ngrok
-
-If you're testing callbacks with ngrok, set the ngrok host in your shell and start the Django dev server (example):
-
-```bash
-export NGROK_HOST=subphrenic-tonda-hipper-ngrok-free.dev
-python manage.py runserver
-```
-
-This ensures `NGROK_HOST` is available to `settings_dev.py` and your local server accepts requests from the ngrok domain.
 
 ### **2. Install Dependencies**
 
@@ -220,39 +203,6 @@ The command is safe:
   # then edit .env with your real credentials
   ```
 
-## Environment (.env)
-
-For local development, copy `.env.example` to `.env` and fill in real values. Do NOT commit your `.env` file — it's already included in `.gitignore`.
-
-```bash
-# copy the example and edit
-cp .env.example .env
-# then open .env and set real values (SECRET_KEY, MPESA keys, etc.)
-# example quick edit using nano:
-nano .env
-```
-
-Example values you should set in `.env`:
-
-```
-SECRET_KEY=dev-insecure-secret-key
-DEBUG=True
-ALLOWED_HOSTS=127.0.0.1,localhost
-CSRF_TRUSTED_ORIGINS=https://subphrenic-tonda-hipper.ngrok-free.dev
-
-MPESA_CONSUMER_KEY=riGjp64odowDOnvadnjyjeiJUmc4eSDtQeclNKNfXCscICpk
-MPESA_CONSUMER_SECRET=fXRp0DR8huY76Bsjog15rX2CAcZ27i19dyu3AtYGYzHorvHWIXDJKUqJCqtGAxsn
-MPESA_CALLBACK_URL=https://subphrenic-tonda-hipper.ngrok-free.dev/payments/callback/
-MPESA_ENV=sandbox
-```
-
-If you prefer to keep secrets in the shell instead of a `.env` file, you can export variables in your shell session instead:
-
-```bash
-export MPESA_CONSUMER_KEY=...
-export MPESA_CONSUMER_SECRET=...
-```
-
 ---
 
 # 🤝 Contributing
@@ -329,12 +279,18 @@ Notes
   * `prod.py`
 * [ ] Remove unused scripts and files
 * [ ] Delete commented-out code
-* [ ] Add `.env` & `.env.example`
-* [ ] Move secrets (keys/passwords) into `.env`
+* [x] Add `.env` & `.env.example`
+* [x] Move secrets (keys/passwords) into `.env`
 
 **Notes:**
-Admin registration for models added.
-Optional helper command exists: `python manage.py createsu`.
+- `.env.example` exists at the project root with placeholder values (do NOT commit your real `.env`).
+- `core/settings_base.py` includes a small `.env` loader that reads `.env` into the environment for local development.
+
+### Security & env (completed)
+
+* [x] Added `SECURITY.md` with incident response and best-practices.
+* [x] Added remediation scripts in `scripts/` (`remediate.sh`, `revoke_credentials.sh`) to help rotate and remove exposed credentials.
+* [x] Updated `mpesa_test.py` to load credentials from `.env` (no hardcoded keys).
 
 ---
 
@@ -342,8 +298,8 @@ Optional helper command exists: `python manage.py createsu`.
 
 ## **2. MPESA STK Push Improvements**
 
-* [x] Add detailed logging for token + STK steps  # TODO: add structured logging
-* [x] Implement retry logic                         # TODO: add retry/backoff for transient errors
+* [ ] Add detailed logging for token + STK steps  # TODO: add structured logging
+* [ ] Implement retry logic                         # TODO: add retry/backoff for transient errors
 * [ ] Validate API responses                        # TODO: add strict response schema validation
 
 ### Webhook
@@ -372,8 +328,8 @@ Optional helper command exists: `python manage.py createsu`.
 * [ ] Global error handler middleware
 * [ ] JWT or session-based authentication
 * [ ] Add rate limiting
-* [x] Integrate Celery + Redis
-* [x] Add periodic tasks + retries
+* [ ] Integrate Celery + Redis
+* [ ] Add periodic tasks + retries
 
 ---
 
