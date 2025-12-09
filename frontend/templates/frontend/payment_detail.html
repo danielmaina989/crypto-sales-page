@@ -1,0 +1,41 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Payment Details{% endblock %}
+
+{% block content %}
+<div class="container">
+  <a href="{% url 'payments:history' %}" class="btn-secondary">← Back to history</a>
+  <h1>Payment #{{ payment.id }}</h1>
+
+  <div class="card">
+    <div class="card__header">
+      <h2>Status: {{ payment.get_status_display }}</h2>
+      <small>Created: {{ payment.created_at }}</small>
+    </div>
+
+    <div class="card__body">
+      <p><strong>Amount:</strong> KES {{ payment.amount }}</p>
+      <p><strong>Phone:</strong> {{ payment.phone_number }}</p>
+      <p><strong>Checkout Request ID:</strong> {{ payment.checkout_request_id|default:'-' }}</p>
+      <p><strong>Merchant Request ID:</strong> {{ payment.merchant_request_id|default:'-' }}</p>
+      <p><strong>Receipt:</strong> {{ payment.mpesa_receipt_number|default:'-' }}</p>
+      <p><strong>Error Code:</strong> {{ payment.error_code|default:'-' }}</p>
+      <p><strong>Error Message:</strong> {{ payment.error_message|default:'-' }}</p>
+
+      <h3>Callback Raw Data</h3>
+      <pre style="white-space:pre-wrap; background:#f7f7f7; padding:12px; border-radius:6px;">{{ payment.callback_raw_data|default:'-' }}</pre>
+    </div>
+
+    <div class="card__footer">
+      {% if payment.status == 'pending' %}
+        <form method="post" action="{% url 'payments:simulate-callback' payment.checkout_request_id %}">
+          {% csrf_token %}
+          <button class="btn-primary">Simulate Callback</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

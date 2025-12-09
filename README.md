@@ -240,6 +240,16 @@ This is the cleaned-up, GitHub-friendly version of your to-do list based on the 
 
 ---
 
+## Legend
+
+Use emoji for clearer status at-a-glance:
+
+- ✅ = Done
+- ⬜ = Pending / To do
+- ❗ = Attention required
+
+---
+
 # Accomplishments to date
 
 The following features and tasks have been implemented and tested in this repository so far:
@@ -271,16 +281,16 @@ Notes
 
 ## **1. Project Structure & Cleanup**
 
-* [x] Create modular apps: `core/`, `payments/`, `users/`
-* [x] Split settings into:
+* ✅ Create modular apps: `core/`, `payments/`, `users/`
+* ✅ Split settings into:
 
   * `base.py`
   * `dev.py`
   * `prod.py`
-* [ ] Remove unused scripts and files
-* [ ] Delete commented-out code
-* [x] Add `.env` & `.env.example`
-* [x] Move secrets (keys/passwords) into `.env`
+* ⬜ Remove unused scripts and files
+* ⬜ Delete commented-out code
+* ✅ Add `.env` & `.env.example`
+* ✅ Move secrets (keys/passwords) into `.env`
 
 **Notes:**
 - `.env.example` exists at the project root with placeholder values (do NOT commit your real `.env`).
@@ -288,9 +298,9 @@ Notes
 
 ### Security & env (completed)
 
-* [x] Added `SECURITY.md` with incident response and best-practices.
-* [x] Added remediation scripts in `scripts/` (`remediate.sh`, `revoke_credentials.sh`) to help rotate and remove exposed credentials.
-* [x] Updated `mpesa_test.py` to load credentials from `.env` (no hardcoded keys).
+* ✅ Added `SECURITY.md` with incident response and best-practices.
+* ✅ Added remediation scripts in `scripts/` (`remediate.sh`, `revoke_credentials.sh`) to help rotate and remove exposed credentials.
+* ✅ Updated `mpesa_test.py` to load credentials from `.env` (no hardcoded keys).
 
 ---
 
@@ -298,25 +308,73 @@ Notes
 
 ## **2. MPESA STK Push Improvements**
 
-* [ ] Add detailed logging for token + STK steps  # TODO: add structured logging
-* [ ] Implement retry logic                         # TODO: add retry/backoff for transient errors
-* [ ] Validate API responses                        # TODO: add strict response schema validation
+* ✅ Add detailed logging for token + STK steps  # Implemented: structured JSON-style logging helper and safe/redacted logs in `payments/utils/mpesa_api.py`
+* ✅ Implement retry logic                         # Implemented: safe retry loops and tenacity integration with `reraise=True`; token and STK calls retry with exponential backoff
+* ✅ Validate API responses                        # Implemented: strict response shape validation for token and STK responses; logs and raises on invalid shapes
 
 ### Webhook
 
-* [x] Create `/mpesa/callback/` endpoint            # Implemented: `payments/views/callback.py`
-* [x] Validate callback body                        # Implemented: basic JSON parsing and presence checks; returns 400 on invalid JSON
-* [x] Update payment status in DB                   # Implemented: updates `Payment.status`, `mpesa_receipt_number`, `error_*` fields
-* [ ] Notify user                                   # TODO: integrate notifications (email/SMS/push)
+* ✅ Create `/mpesa/callback/` endpoint            # Implemented: `payments/views/callback.py`
+* ✅ Validate callback body                        # Implemented: tolerant parsing and presence checks; returns 200 to acknowledge receipt
+* ✅ Update payment status in DB                   # Implemented: updates `Payment.status`, `mpesa_receipt_number`, `error_*` fields
+* ✅ Notify user                                   # Implemented: background notification task `payment_notify_user` (Celery shared task + sync fallback) and integration in callback/poller
 
 ### Testing Mode
 
-* [x] Mock MPESA responses                         # Implemented in tests using `unittest.mock.patch`
-* [x] Tests for:
+* ✅ Mock MPESA responses                         # Implemented in tests using `unittest.mock.patch`
+* ✅ Tests for:
 
-  * [ ] Token generation                            # Not implemented yet
-  * [x] STK requests                                # Implemented: `payments/tests_mpesa.py` mocks `initiate_stk_push`
-  * [x] Callback processing                         # Implemented: `payments/tests_mpesa.py` includes success & failure callback tests
+  * ✅ Token generation                            # Implemented: `payments/tests/test_mpesa_token.py` (success / invalid JSON / HTTP error)
+  * ✅ STK requests                                # Implemented: `payments/tests_mpesa.py` and additional token tests
+  * ✅ Callback processing                         # Implemented: callback tests exist and pass locally
+
+
+### Notifications (how to enable)
+
+The project includes a background notification task `payment_notify_user` which uses `payments.utils.notifications.notify_payment_success`.
+
+To enable email notifications:
+
+1. Configure Django email settings in your `.env` or environment (example using Gmail SMTP):
+
+```
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@example.com
+EMAIL_HOST_PASSWORD=your-email-password
+DEFAULT_FROM_EMAIL=your-email@example.com
+```
+
+To enable SMS (Twilio):
+
+```
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_FROM_NUMBER=+1234567890
+```
+
+The notifier will attempt to send email to the `payment.user.email` (if present) and the configured `DEFAULT_FROM_EMAIL`. Twilio SMS will be used if the Twilio client is installed and the required env vars are set; otherwise SMS is skipped silently.
+
+### Running the new tests
+
+Run the payments-specific tests locally:
+
+```bash
+# Run the payments test module
+python manage.py test payments
+
+# Run the token tests only
+python manage.py test payments.tests.test_mpesa_token
+```
+
+### Notes & Remaining work
+
+* ⬜ Move the in-memory process-local access token cache to a shared cache (Django cache / Redis) so multiple workers/processes reuse the same token and avoid excessive token requests (recommended for production/Celery setups).
+* ⬜ Add more comprehensive integration tests for end-to-end STK → callback → DB flows under Celery (including transient network failures and rate-limit scenarios).
+* ⬜ Consider exporting true structured JSON logs (using a JSON formatter or structlog) so logs are parsable by log aggregation systems.
+* ⬜ Add metrics/monitoring (Sentry/Prometheus) for MPESA errors and token failures.
 
 ---
 
