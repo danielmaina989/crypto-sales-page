@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from payments.models import Payment
+from payments.models import Payment, PaymentAccessLog
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
@@ -201,5 +201,42 @@ def export_payments_pdf(queryset):
 
 @login_required
 def payment_detail(request, pk: int):
-    payment = get_object_or_404(Payment, pk=pk, user=request.user)
+    payment = get_object_or_404(Payment, pk=pk)
+
+    # Authorization: owners can view their own payments; others require staff/superuser or permission
+    is_owner = (payment.user_id == request.user.id)
+    is_staff = getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+    has_perm = request.user.has_perm('payments.view_sensitive_payment') if request.user.is_authenticated else False
+
+    if not (is_owner or is_staff or has_perm):
+        # Log the denied access attempt for audit
+        try:
+            PaymentAccessLog.objects.create(
+                payment=payment,
+                user=request.user if request.user.is_authenticated else None,
+                username=request.user.get_username() if request.user.is_authenticated else None,
+                action='view',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT'),
+                note='unauthorized_view_attempt',
+            )
+        except Exception:
+            # never raise on logging
+            pass
+        return HttpResponse(status=403)
+
+    # Log the access
+    try:
+        PaymentAccessLog.objects.create(
+            payment=payment,
+            user=request.user if request.user.is_authenticated else None,
+            username=request.user.get_username() if request.user.is_authenticated else None,
+            action='view',
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+        )
+    except Exception:
+        # ensure logging failures don't block the response
+        pass
+
     return render(request, 'frontend/payment_detail.html', {'payment': payment})
