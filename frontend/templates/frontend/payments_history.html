@@ -1,5 +1,6 @@
 {% extends 'frontend/base.html' %}
 {% load static %}
+{% load redact_tags %}
 
 {% block title %}Payment History{% endblock %}
 
@@ -88,8 +89,9 @@
 
           <div class="card__body">
             {% if p.mpesa_receipt_number %}
-              <p class="text-muted"><strong>Receipt:</strong> {{ p.mpesa_receipt_number|slice:"-8:" }}</p>
+              <p class="text-muted"><strong>Receipt:</strong> {{ p.mpesa_receipt_number|redact:6 }}</p>
             {% endif %}
+            <p class="text-muted"><strong>Phone:</strong> {{ p.phone_number|redact:4 }}</p>
             <p class="text-muted"><strong>Status:</strong>
               {% if p.status == 'success' %}
                 <span class="badge badge-success">Success</span>

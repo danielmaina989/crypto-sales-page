@@ -3,11 +3,13 @@ from django.contrib.auth.decorators import login_required
 from payments.models import Payment, PaymentAccessLog
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 import csv
 from datetime import datetime
 from django.utils.timezone import make_aware
 from decimal import Decimal, InvalidOperation
+from payments.decorators import audit_and_require_payment_view
+from django.contrib.admin.views.decorators import staff_member_required
 
 # Try to import reportlab for PDF export; if unavailable we'll fallback to CSV
 try:
@@ -200,43 +202,77 @@ def export_payments_pdf(queryset):
 
 
 @login_required
+@audit_and_require_payment_view('pk')
 def payment_detail(request, pk: int):
     payment = get_object_or_404(Payment, pk=pk)
-
-    # Authorization: owners can view their own payments; others require staff/superuser or permission
-    is_owner = (payment.user_id == request.user.id)
-    is_staff = getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
-    has_perm = request.user.has_perm('payments.view_sensitive_payment') if request.user.is_authenticated else False
-
-    if not (is_owner or is_staff or has_perm):
-        # Log the denied access attempt for audit
-        try:
-            PaymentAccessLog.objects.create(
-                payment=payment,
-                user=request.user if request.user.is_authenticated else None,
-                username=request.user.get_username() if request.user.is_authenticated else None,
-                action='view',
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT'),
-                note='unauthorized_view_attempt',
-            )
-        except Exception:
-            # never raise on logging
-            pass
-        return HttpResponse(status=403)
-
-    # Log the access
-    try:
-        PaymentAccessLog.objects.create(
-            payment=payment,
-            user=request.user if request.user.is_authenticated else None,
-            username=request.user.get_username() if request.user.is_authenticated else None,
-            action='view',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT'),
-        )
-    except Exception:
-        # ensure logging failures don't block the response
-        pass
-
     return render(request, 'frontend/payment_detail.html', {'payment': payment})
+
+
+@staff_member_required
+def access_logs_api(request):
+    # Staff-only JSON endpoint with filtering and pagination for access logs
+    qs = PaymentAccessLog.objects.select_related('user', 'payment').all().order_by('-created_at')
+
+    # Filters
+    user_q = request.GET.get('user')
+    action_q = request.GET.get('action')
+    date_from = request.GET.get('from')
+    date_to = request.GET.get('to')
+
+    if user_q:
+        qs = qs.filter(username__icontains=user_q) | qs.filter(user__username__icontains=user_q)
+    if action_q:
+        qs = qs.filter(action__iexact=action_q)
+
+    from datetime import datetime
+    from django.utils.timezone import make_aware
+    if date_from:
+        try:
+            dt = datetime.strptime(date_from, '%Y-%m-%d')
+            qs = qs.filter(created_at__gte=make_aware(dt))
+        except Exception:
+            pass
+    if date_to:
+        try:
+            dt = datetime.strptime(date_to, '%Y-%m-%d')
+            qs = qs.filter(created_at__lte=make_aware(dt.replace(hour=23, minute=59, second=59)))
+        except Exception:
+            pass
+
+    # Pagination
+    try:
+        page = int(request.GET.get('page', '1'))
+        page_size = int(request.GET.get('page_size', '50'))
+        if page_size > 200:
+            page_size = 200
+    except Exception:
+        page = 1
+        page_size = 50
+
+    from django.core.paginator import Paginator, EmptyPage
+    paginator = Paginator(qs, page_size)
+    try:
+        page_obj = paginator.page(page)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    data = []
+    for l in page_obj.object_list:
+        data.append({
+            'id': l.id,
+            'payment_id': l.payment_id,
+            'user': l.user.get_username() if l.user else l.username,
+            'action': l.action,
+            'ip_address': l.ip_address,
+            'user_agent': (l.user_agent or '')[:200],
+            'note': l.note,
+            'created_at': l.created_at.isoformat(),
+        })
+
+    return JsonResponse({
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'page': page,
+        'page_size': page_size,
+        'logs': data,
+    })

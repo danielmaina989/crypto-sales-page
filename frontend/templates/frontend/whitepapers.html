@@ -1,11 +1,63 @@
 {% extends 'frontend/base.html' %}
-{% block title %}White Papers{% endblock %}
+{% load static %}
+{% block title %}Whitepapers & Research — Crypto Sales{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:12px;">
-    <h1>White Papers (placeholder)</h1>
-    <a href="{% url 'home' %}" class="btn-primary">Back to home</a>
+<div class="full-bleed page-hero">
+  <div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+      <div>
+        <h1>Whitepapers & Research</h1>
+        <p class="text-muted">Documentation, architecture, and research articles about our platform and the MPESA & crypto flow.</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="{% url 'register' %}" class="btn-primary">Get started</a>
+        <a href="{% static 'frontend/docs/whitepaper-sample.pdf' %}" class="btn-secondary" download>Download Whitepaper (PDF)</a>
+      </div>
+    </div>
   </div>
-  <p>This is a placeholder page for White Papers.</p>
 </div>
+
+<div class="container" style="padding-top:18px;">
+    <section style="margin-top:20px;">
+      <h2>Platform Whitepaper</h2>
+      <p>A high-level paper describing the platform, vision, market opportunity and technical approach. Includes MPESA → Crypto flow diagrams and security model.</p>
+      <ul>
+        <li><a href="{% static 'frontend/docs/whitepaper-sample.pdf' %}" download>Platform Whitepaper (PDF)</a></li>
+        <li><a href="{% static 'frontend/docs/api-spec-sample.pdf' %}" download>API Spec (PDF)</a></li>
+        <li><a href="{% static 'frontend/docs/whitepaper-sample.pdf' %}" download>Security Policy (PDF)</a></li>
+      </ul>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Technical Docs</h2>
+      <p>Details for developers and architects.</p>
+      <ul>
+        <li>API endpoints and examples</li>
+        <li>Architecture diagram</li>
+        <li>MPESA STK Push flow and webhook handling</li>
+        <li>Security & data retention</li>
+      </ul>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Research Articles</h2>
+      <ul>
+        <li>Kenyan crypto adoption statistics</li>
+        <li>Comparison of exchanges and liquidity</li>
+        <li>Crypto taxation guidance in Kenya</li>
+      </ul>
+    </section>
+
+    <div style="margin-top:28px;">
+      <h3>Downloads</h3>
+      <p>Download the official PDFs for offline reading.</p>
+      <div style="display:flex; gap:12px;">
+        <a class="btn-secondary" href="{% static 'frontend/docs/whitepaper-sample.pdf' %}" download>Whitepaper PDF</a>
+        <a class="btn-secondary" href="{% static 'frontend/docs/api-spec-sample.pdf' %}" download>API Spec PDF</a>
+        <a class="btn-secondary" href="{% static 'frontend/docs/whitepaper-sample.pdf' %}" download>Security PDF</a>
+      </div>
+    </div>
+  </div>
+
 {% endblock %}
