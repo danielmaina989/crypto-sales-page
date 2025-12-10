@@ -1,11 +1,89 @@
 {% extends 'frontend/base.html' %}
-{% block title %}Features{% endblock %}
+{% load static %}
+{% block title %}Features — Crypto Sales{% endblock %}
+
 {% block content %}
-<div class="container">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:12px;">
-    <h1>Features (placeholder)</h1>
-    <a href="{% url 'home' %}" class="btn-primary">Back to home</a>
+<div class="full-bleed page-hero">
+  <div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+      <div>
+        <h1>Features</h1>
+        <p class="text-muted">Powerful trading tools and wallet features built for Kenyan users — MPESA integrated.</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <a href="{% url 'register' %}" class="btn-primary">Get started</a>
+        <button id="page-buy-now" class="btn-secondary">Buy crypto now</button>
+      </div>
+    </div>
   </div>
-  <p>This is a placeholder page for Features.</p>
 </div>
+
+<div class="container" style="padding-top:18px;">
+  <section style="margin-top:20px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px;">
+    <div class="card">
+      <img src="{% static 'frontend/icons/chart.svg' %}" alt="Chart" style="width:36px;height:36px; margin-bottom:8px">
+      <h3>Trading Tools</h3>
+      <p class="text-muted">Market and limit orders, quick buy/sell, and order history.</p>
+    </div>
+
+    <div class="card">
+      <img src="{% static 'frontend/icons/chart.svg' %}" alt="Charts" style="width:36px;height:36px; margin-bottom:8px">
+      <h3>Market charts</h3>
+      <p class="text-muted">Candlestick charts, indicators, and timeframe selection for traders.</p>
+    </div>
+
+    <div class="card">
+      <img src="{% static 'frontend/icons/portfolio.svg' %}" alt="Portfolio" style="width:36px;height:36px; margin-bottom:8px">
+      <h3>Portfolio dashboard</h3>
+      <p class="text-muted">Track holdings, P&L, and allocations across assets.</p>
+    </div>
+
+    <div class="card">
+      <img src="{% static 'frontend/icons/chart.svg' %}" alt="Alerts" style="width:36px;height:36px; margin-bottom:8px">
+      <h3>Price alerts</h3>
+      <p class="text-muted">Set alerts and receive notifications via push or SMS.</p>
+    </div>
+  </section>
+
+  <section style="margin-top:18px;">
+    <h2>Customer Support</h2>
+    <ul>
+      <li><strong>24/7 Chat</strong> — In-app live chat for quick help.</li>
+      <li><strong>FAQs</strong> — Common questions and step-by-step guides.</li>
+      <li><strong>Telegram / WhatsApp</strong> — Join our community or contact support directly.
+        <div style="margin-top:8px;"><a class="link" href="#" target="_blank">Telegram group</a> · <a class="link" href="#" target="_blank">WhatsApp support</a></div>
+      </li>
+    </ul>
+  </section>
+
+  <section style="margin-top:18px;">
+    <h2>Security & Compliance</h2>
+    <ul>
+      <li>Two-factor authentication (2FA) and device history.</li>
+      <li>Secure MPESA integrations and encrypted storage for sensitive data.</li>
+      <li>Privacy and data retention policies — see our <a href="#">security policy</a>.</li>
+    </ul>
+  </section>
+
+  <div style="margin-top:28px;">
+    <h3>Need help?</h3>
+    <p>If you need hands-on assistance, reach out via <a href="#">support@yourdomain.example</a> or use the WhatsApp link above.</p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var buy = document.getElementById('page-buy-now');
+  if(buy){
+    buy.addEventListener('click', function(){
+      var demo = document.getElementById('open-payment-demo');
+      if(demo){ demo.click(); return; }
+      window.location.href = '{% url "market" %}';
+    });
+  }
+})();
+</script>
 {% endblock %}

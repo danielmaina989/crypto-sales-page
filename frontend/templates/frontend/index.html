@@ -12,20 +12,17 @@
 <div class="landing">
   <div class="container">
 
-      {% include 'frontend/components/navbar.html' %}
-
       <div class="content">
          <h1>BUY & <br> SELL <span>Crypto</span></h1>
          <p>World best Cryptocurrency exchange available <br> on mobile as well as desktop</p>
          <a href="{% url 'market' %}" class="btn-primary">Explore Market</a>
       </div>
 
-      <h2 class="mt-6">Top Coins</h2>
       <div class="coin-list" id="top-coins">
         <!-- Top 3 coins will be populated by JS -->
       </div>
 
-     {% include 'frontend/components/modal_payment.html' %}
+      {% include 'frontend/components/modal_payment.html' %}
 
   </div>
 </div>
@@ -86,4 +83,5 @@ async function populateTopCoins(){
 
 populateTopCoins();
 </script>
+
 {% endblock %}

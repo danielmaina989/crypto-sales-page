@@ -1,9 +1,50 @@
 {% extends 'frontend/base.html' %}
-{% block title %}About{% endblock %}
-{% block content %}
-<div class="container">
-  <h1>About (placeholder)</h1>
-  <p>This is a placeholder page for About.</p>
-</div>
-{% endblock %}
+{% load static %}
+{% block title %}About Us — Crypto Sales{% endblock %}
 
+{% block content %}
+
+  <div class="container" style="padding-top:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+      <div>
+        <h1>About Us</h1>
+        <p class="text-muted">We are a Kenya-focused team building a simple, secure way to move between MPESA and cryptocurrency.</p>
+      </div>
+      <div>
+        <a href="{% url 'register' %}" class="btn-primary">Get started</a>
+      </div>
+    </div>
+
+    <section style="margin-top:20px;">
+      <h2>Mission & Vision</h2>
+      <p>Our mission is to increase financial access by bridging mobile money (MPESA) and cryptocurrency in a safe, compliant way.</p>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Our Story</h2>
+      <p>Founded by local developers and entrepreneurs who saw the need for simpler rails between MPESA and crypto, we built a minimal platform focused on usability and security.</p>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Team</h2>
+      <ul>
+        <li><strong>Daniel Maina</strong> — Founder & Backend Engineer</li>
+        <li><strong>Jane Doe</strong> — Product & Design</li>
+        <li><strong>Support Team</strong> — operations and customer success</li>
+      </ul>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Contact</h2>
+      <p>Email: <a href="mailto:support@yourdomain.example">support@yourdomain.example</a></p>
+      <p>WhatsApp: <a href="#">Click to chat</a></p>
+    </section>
+
+    <section style="margin-top:18px;">
+      <h2>Legal</h2>
+      <p><a href="#">Terms & Conditions</a> · <a href="#">Privacy Policy</a></p>
+    </section>
+
+  </div>
+
+{% endblock %}

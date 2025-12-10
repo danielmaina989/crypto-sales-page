@@ -10,14 +10,26 @@ import threading
 try:
     import requests
     from requests.exceptions import HTTPError as _HTTPError
+    from requests.exceptions import ConnectionError as _ConnectionError, Timeout as _Timeout
 except Exception:  # requests may not be installed in this environment
     requests = None
     _HTTPError = Exception
+    _ConnectionError = Exception
+    _Timeout = Exception
 
 from .retry import retry
 from .rate_limit import wait_for_rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+class MPesaAuthError(RuntimeError):
+    """Raised when MPESA OAuth/token fetch fails due to HTTP issues (e.g., WAF/403)."""
+    pass
+
+
+# Define which exceptions should be considered 'network' and retriable
+_retry_network_exceptions = ( _ConnectionError, _Timeout ) if requests is not None else (Exception,)
 
 
 def _redact_headers(headers):
@@ -63,29 +75,79 @@ def _redact_sensitive(d: dict) -> dict:
     return redacted
 
 
-@retry(max_attempts=3, base_delay=0.5)
+@retry(max_attempts=3, base_delay=0.5, exceptions=_retry_network_exceptions)
 def _http_get(url, headers=None, timeout=15):
+    """HTTP GET with sane default headers to reduce Incapsula/WAF blocks.
+
+    - Adds a browser-like User-Agent and Accept headers
+    - Optionally sets Origin from MPESA_CALLBACK_URL when available
+    - Retries only on network-level exceptions (ConnectionError/Timeout)
+    - Raises RuntimeError on non-network HTTP status errors (403/4xx/5xx)
+    """
     if requests is None:
         raise RuntimeError("The 'requests' package is required to call MPESA APIs")
+
+    # Default safe headers to mimic a real browser request
+    safe_headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
+
+    # If a callback URL is configured, provide an Origin header derived from it
     try:
-        resp = requests.get(url, headers=headers, timeout=timeout)
+        callback = getattr(settings, 'MPESA_CALLBACK_URL', '')
+        if callback:
+            from urllib.parse import urlparse
+            p = urlparse(callback)
+            if p.scheme and p.netloc:
+                origin = f"{p.scheme}://{p.netloc}"
+                safe_headers.setdefault('Origin', origin)
+    except Exception:
+        # don't fail if parsing origin fails
+        pass
+
+    # Merge with caller headers (caller headers take precedence)
+    if headers:
+        safe_headers.update(headers)
+
+    try:
+        resp = requests.get(url, headers=safe_headers, timeout=timeout)
     except Exception as e:
         logger.exception("HTTP GET to %s failed (network/error): %s", url, str(e))
         raise
 
+    # If the sandbox returns 403 with Incapsula HTML, surface a clear error
+    if resp.status_code == 403:
+        body = None
+        try:
+            body = resp.text
+        except Exception:
+            body = ''
+        lower = (body or '').lower()
+        safe_h = _redact_headers(safe_headers)
+        if 'incapsula' in lower or 'access denied' in lower or 'blocked' in lower:
+            logger.error("MPESA HTTP GET blocked by WAF/Incapsula: url=%s status=%s headers=%s", url, resp.status_code, safe_h)
+            raise RuntimeError(f"HTTP GET {url} returned 403: blocked by WAF/Incapsula")
+        # Generic 403
+        logger.error("MPESA HTTP GET returned 403: url=%s headers=%s body=%s", url, safe_h, (body or '')[:500])
+        raise RuntimeError(f"HTTP GET {url} returned 403: {body[:500] if body else 'no body'}")
+
     try:
         resp.raise_for_status()
     except _HTTPError as e:
-        # Provide the response body and status for debugging upstream failures
         body = None
         try:
             body = resp.text
         except Exception:
             body = str(e)
         short_body = (body[:1000] + '...') if body and len(body) > 1000 else body
-        safe_headers = _redact_headers(headers)
-        logger.error("MPESA HTTP GET error: url=%s status=%s body=%s headers=%s", url, resp.status_code, short_body, safe_headers)
+        safe_h = _redact_headers(safe_headers)
+        logger.error("MPESA HTTP GET error: url=%s status=%s body=%s headers=%s", url, resp.status_code, short_body, safe_h)
+        # Non-network HTTP errors are considered unretriable here (return fast)
         raise RuntimeError(f"HTTP GET {url} returned {resp.status_code}: {short_body}") from e
+
     return resp
 
 
@@ -107,7 +169,7 @@ def _http_post(url, payload=None, headers=None, timeout=20):
     logger.debug("_http_post: rate limit slot acquired, proceeding with POST to %s", url)
     
     # Helper for retrying network-level errors (not 429 rate limits)
-    @retry(max_attempts=3, base_delay=0.5, exceptions=(Exception,))
+    @retry(max_attempts=3, base_delay=0.5, exceptions=_retry_network_exceptions)
     def _post_with_retry():
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
@@ -179,7 +241,13 @@ def get_access_token():
     auth = base64.b64encode(f"{key}:{secret}".encode()).decode()
     url = f"{_base_url()}/oauth/v1/generate?grant_type=client_credentials"
 
-    resp = _http_get(url, headers={"Authorization": f"Basic {auth}"})
+    try:
+        resp = _http_get(url, headers={"Authorization": f"Basic {auth}"})
+    except RuntimeError as e:
+        # Surface a specific auth error so callers can choose a fallback (e.g., simulate)
+        logger.error("Failed to fetch MPESA access token: %s", str(e))
+        raise MPesaAuthError(str(e))
+
     try:
         data = resp.json()
     except Exception:
@@ -280,7 +348,13 @@ def initiate_stk_push(phone_number, amount, account_ref, description):
     url = f"{_base_url()}/mpesa/stkpush/v1/processrequest"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     resp = _http_post(url, payload=payload, headers=headers)
-    return resp.json()
+    try:
+        return resp.json()
+    except Exception:
+        # In case response is not JSON, raise a helpful error
+        body = getattr(resp, 'text', str(resp))
+        logger.error('Non-JSON response from STK push: %s', (body or '')[:1000])
+        raise RuntimeError('Invalid JSON response from STK push')
 
 
 def query_transaction_status(identifier):
@@ -306,4 +380,9 @@ def query_transaction_status(identifier):
     url = f"{_base_url()}/mpesa/stkpushquery/v1/query"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     resp = _http_post(url, payload=payload, headers=headers)
-    return resp.json()
+    try:
+        return resp.json()
+    except Exception:
+        body = getattr(resp, 'text', str(resp))
+        logger.error('Non-JSON response from transaction query: %s', (body or '')[:1000])
+        raise RuntimeError('Invalid JSON response from transaction query')

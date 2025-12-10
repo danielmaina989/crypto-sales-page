@@ -1,7 +1,7 @@
 {% load static %}
 <nav class="site-nav" role="navigation" aria-label="Main navigation">
   <div class="site-nav__inner container">
-    <a class="site-nav__brand" href="{% url 'market' %}">
+    <a class="site-nav__brand" href="{% url 'market' %}" title="View market">
       <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo">
     </a>
 
@@ -10,17 +10,27 @@
     </button>
 
     <ul id="site-nav-links" class="site-nav__links">
-      <li><a href="{% url 'market' %}">Market</a></li>
-      <li><a href="{% url 'features' %}">Feature</a></li>
-      <li><a href="{% url 'whitepapers' %}">White Papers</a></li>
-      <li><a href="{% url 'about' %}">About Us</a></li>
+      <li><a href="{% url 'market' %}" title="Explore market">Market</a></li>
+      <li><a href="{% url 'features' %}" title="See features">Features</a></li>
+      <li><a href="{% url 'whitepapers' %}" title="Read whitepapers">Whitepapers</a></li>
+      <li><a href="{% url 'about' %}" title="About us">About Us</a></li>
     </ul>
 
     <div class="site-nav__actions">
-      <a href="{% url 'login' %}" class="btn-secondary">Login</a>
-      <a href="{% url 'register' %}" class="btn-secondary">Register</a>
-      <a href="{% url 'payments:history' %}" class="btn-secondary">History</a>
-      <a href="{% url 'dashboard' %}" class="btn-primary">Dashboard</a>
+      <!-- Universal CTA to buy quickly; if modal present it will open, otherwise go to market -->
+      <button id="nav-buy-now" class="btn-primary" title="Buy crypto now" aria-label="Buy crypto now">Buy crypto now</button>
+
+      {% if user.is_authenticated %}
+        <a href="{% url 'payments:history' %}" class="btn-secondary" title="View your payment history" aria-label="Payment history">My Payments</a>
+        <a href="{% url 'dashboard' %}" class="btn-secondary" title="Open your dashboard" aria-label="Dashboard">Dashboard</a>
+        <a href="{% url 'logout' %}" class="btn-secondary" title="Log out" aria-label="Log out">Log out</a>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn-secondary" title="Log in to your account" aria-label="Log in">Log in</a>
+        <a href="{% url 'register' %}" class="btn-primary" title="Create an account" aria-label="Sign up">Get started</a>
+      {% endif %}
+
+      <!-- Theme toggle (basic client-side toggle) -->
+      <button id="theme-toggle" class="btn-secondary" title="Toggle theme" aria-label="Toggle theme">Theme</button>
     </div>
   </div>
 </nav>
@@ -37,5 +47,44 @@
       btn.setAttribute('aria-expanded', String(!expanded));
       nav.classList.toggle('open');
     });
+
+    // Buy button: try to open the payment modal if present, otherwise go to market
+    var buyBtn = document.getElementById('nav-buy-now');
+    if(buyBtn){
+      buyBtn.addEventListener('click', function(e){
+        // Try to find the demo open button (modal component)
+        var demo = document.getElementById('open-payment-demo');
+        if(demo){
+          demo.click();
+          // close nav on mobile if open
+          btn.setAttribute('aria-expanded', 'false');
+          nav.classList.remove('open');
+          return;
+        }
+        // fallback: redirect to market page
+        window.location.href = '{% url "market" %}';
+      });
+    }
+
+    // Theme toggle: simple client-side toggle (stores preference in localStorage)
+    var themeToggle = document.getElementById('theme-toggle');
+    if(themeToggle){
+      var applyTheme = function(theme){
+        if(theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+      };
+      // initialize
+      try{ var saved = localStorage.getItem('site-theme'); if(saved) applyTheme(saved); }catch(e){}
+
+      themeToggle.addEventListener('click', function(){
+        try{
+          var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          applyTheme(next);
+          localStorage.setItem('site-theme', next);
+        }catch(e){ console.error(e); }
+      });
+    }
+
   })();
 </script>
