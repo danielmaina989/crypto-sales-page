@@ -516,3 +516,121 @@ REDIS_URL=redis://127.0.0.1:6379/0
 If you need to share a template, create `.env.example` with placeholder values and commit that instead of `.env`.
 
 ---
+
+## 🔒 Sensitive data access & visibility
+
+Payment records contain sensitive personal and financial information (phone numbers, MPESA receipts, callback payloads). Treat access to full payment details as restricted and follow the principle of least privilege.
+
+Who should be allowed to view full payment details
+
+- System administrators (on-duty ops) for debugging and incident response
+- Support engineers with approved access for customer support cases (must be time-limited and logged)
+- Auditors and compliance officers under a formal request process
+
+Who should NOT have access
+
+- General developers on non-production environments without explicit need
+- Unauthenticated users or normal application users (they should only see their own records)
+- Third-party contractors without an approved NDA or limited-scope access
+
+Recommended controls and procedures
+
+1. Role-based access control (RBAC)
+   - Enforce RBAC on views that return full `callback_raw_data` or `error_message`.
+   - Prefer server-side checks (decorators or middleware) instead of hiding data in templates.
+
+2. Logging and auditing
+   - Log every access to sensitive payment data (who, when, and why).
+   - Store audit logs in an append-only system if possible.
+
+3. Redaction by default
+   - In list views or public dashboards, show only minimal fields (amount, date, truncated receipt). Full payloads should be shown only in the detail view to authorized users.
+
+4. Access requests & approvals
+   - Require a short justification and approval from a team lead for access to specific production payment records.
+
+5. Data retention & deletion
+   - Keep failed test payments separated from production payments.
+   - Provide a safe clean-up workflow (see `cleanup_failed_payments` management command) and a retention policy for callback payloads.
+
+6. Encrypt backups and restrict DB access
+   - Ensure DB backups are encrypted and restrict access to backups to a small set of operators.
+
+
+---
+
+# New: Access Auditing & Authorization (Implemented)
+
+To improve operational security and make it safe to inspect payment details, the repository now includes the following server-side features (implemented):
+
+- `payments.models.PaymentAccessLog` (new model)
+  - Records every access attempt to a `Payment` detail view (who, when, IP, user-agent, action)
+  - Registered in the admin as `PaymentAccessLog` for review
+
+- Authorization rules for `payment_detail`
+  - Payment owners (the user who created the payment) can view their own records
+  - Staff/superusers can view any record
+  - Users with the `payments.view_payment` model permission can view records
+  - Unauthorized attempts are recorded in `PaymentAccessLog` and return HTTP 403
+
+- Admin UI
+  - `PaymentAccessLog` is registered in `payments/admin.py` (read-only fields) so ops can review access events
+
+
+## Migration & setup steps (required)
+
+After pulling these code changes you must create and apply migrations to add the `PaymentAccessLog` table:
+
+```bash
+# from project root
+source crypto/bin/activate     # or your venv
+python manage.py makemigrations payments
+python manage.py migrate
+```
+
+If you use migrations via a CI pipeline, include the generated migration in your PR. The new migration will create the `payments_paymentaccesslog` table.
+
+
+## How to grant support access
+
+To allow a user to view other users' payment details, either:
+
+1. Make them staff or superuser (quick, but broad):
+
+```bash
+python manage.py shell
+from django.contrib.auth import get_user_model
+User = get_user_model()
+u = User.objects.get(username='alice')
+u.is_staff = True
+u.save()
+```
+
+2. Grant the model-level view permission (fine-grained):
+
+```bash
+python manage.py shell
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import get_user_model
+from payments.models import Payment
+
+ct = ContentType.objects.get_for_model(Payment)
+perm = Permission.objects.get(content_type=ct, codename='view_payment')
+user = get_user_model().objects.get(username='bob')
+user.user_permissions.add(perm)
+```
+
+This grants only the `view_payment` right which the code checks for access.
+
+
+## Operational notes
+
+- Audit logs are intentionally stored in the regular DB for now. For production, consider shipping them to a centralized audit/append-only store (WORM or ELK/S3 with restricted ACLs) and add an export-only admin view.
+
+- The audit logger is defensive: logging failures do not interrupt the user request.
+
+- If you need a stricter policy (e.g., support staff must request approval before viewing a record), we can add a simple `approval_required` flag and gate the view until approved.
+
+
+---
