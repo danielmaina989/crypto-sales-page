@@ -3,36 +3,46 @@
 
 {% block title %}Log in{% endblock %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'frontend/auth.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="container" style="max-width:520px; margin-top:48px;">
-  <div class="card">
+<div class="auth-wrapper">
+  <div class="auth-card card">
     <h2>Log in</h2>
-    <p class="text-muted">Access your dashboard and payment history.</p>
+    <p id="auth-desc" class="auth-meta" role="note" aria-live="polite">Access your dashboard and payment history.</p>
 
     <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
-      {% if form.errors %}
-        <div class="alert alert-error">Please correct the errors below.</div>
+
+      {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors|striptags }}</div>
       {% endif %}
 
       <div class="form-field">
-        <label class="form-field__label">Username</label>
-        <input type="text" name="username" class="form-control" required />
+        <label class="form-field__label" for="id_username">Username</label>
+        <input id="id_username" type="text" name="username" class="form-control" value="{{ request.POST.username }}" required aria-label="username" aria-describedby="auth-desc" />
+        {% if form.username.errors %}
+          <div class="form-field__error">{{ form.username.errors|striptags }}</div>
+        {% endif %}
       </div>
 
       <div class="form-field">
-        <label class="form-field__label">Password</label>
-        <input type="password" name="password" class="form-control" required />
+        <label class="form-field__label" for="id_password">Password</label>
+        <input id="id_password" type="password" name="password" class="form-control" required aria-label="password" aria-describedby="auth-desc" />
+        {% if form.password.errors %}
+          <div class="form-field__error">{{ form.password.errors|striptags }}</div>
+        {% endif %}
       </div>
 
-      <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
-        <button class="btn-primary">Log in</button>
+      <div class="auth-actions">
+        <button class="btn-primary" type="submit">Log in</button>
         <a href="{% url 'password_reset' %}" class="btn-secondary">Forgot password?</a>
       </div>
     </form>
 
-    <div style="margin-top:12px;">Don't have an account? <a href="{% url 'register' %}">Register</a></div>
+    <div class="auth-footer">Don't have an account? <a href="{% url 'register' %}">Register</a></div>
   </div>
 </div>
 {% endblock %}
-
