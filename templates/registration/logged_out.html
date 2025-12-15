@@ -1,0 +1,20 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Logged out{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:640px; margin-top:48px; text-align:center;">
+  <div class="card">
+    <h2>Logged out</h2>
+    <p>Thanks for spending some quality time with the web site today.</p>
+
+    <div style="margin-top:18px; display:flex; gap:12px; justify-content:center;">
+      <a href="{% url 'login' %}" class="btn-primary">Log in again</a>
+      <a href="{% url 'register' %}" class="btn-secondary">Register</a>
+      <a href="/" class="btn-secondary">Back to home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

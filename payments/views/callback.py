@@ -149,18 +149,36 @@ def mpesa_callback(request):
         payment.callback_raw_data = None
 
     try:
-        if result_code == 0:
+        if result_code is not None:
+            try:
+                rc = int(result_code)
+            except Exception:
+                logger.warning('mpesa_callback: could not coerce ResultCode to int for checkout_id=%s: %r', checkout_id, result_code)
+                try:
+                    # some sandboxes return string numbers; try strip
+                    rc = int(str(result_code).strip())
+                except Exception:
+                    rc = None
+        else:
+            rc = None
+
+        if rc == 0:
             payment.status = 'success'
             # Extract receipt safely
             try:
                 items = stk.get('CallbackMetadata', {}).get('Item') if isinstance(stk, dict) else None
                 if isinstance(items, list):
+                    # find common receipt field names case-insensitively
+                    receipt = None
                     for it in items:
                         name = (it.get('Name') or '').lower()
                         if name in ('mpesa_receipt_number', 'receiptnumber', 'transactionreceipt', 'mpesareceiptnumber'):
-                            payment.mpesa_receipt_number = it.get('Value')
+                            receipt = it.get('Value')
                             break
+                    if receipt:
+                        payment.mpesa_receipt_number = receipt
                     else:
+                        # fallback: try second item
                         payment.mpesa_receipt_number = items[1].get('Value') if len(items) > 1 and isinstance(items[1], dict) else None
                 else:
                     payment.mpesa_receipt_number = None

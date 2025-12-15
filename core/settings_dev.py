@@ -62,3 +62,7 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
 
 # After login, redirect to dashboard by default in dev
 LOGIN_REDIRECT_URL = '/dashboard/'
+
+# Best-practice: after logout redirect to the login page (named URL 'login')
+# Using the view-name here is flexible: Django will resolve it via resolve_url
+LOGOUT_REDIRECT_URL = 'login'

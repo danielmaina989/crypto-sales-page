@@ -2,6 +2,23 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
+
+
+class IntelligentLoginView(LoginView):
+    """Custom login view that redirects staff/admin users to the Django admin
+    and normal users to the site dashboard after successful authentication.
+    """
+    template_name = 'registration/login.html'
+
+    def get_success_url(self):
+        user = self.request.user
+        # If user has admin/staff privileges, redirect to admin index
+        if getattr(user, 'is_active', False) and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            return reverse_lazy('admin:index')
+        # Default: go to user dashboard
+        return reverse_lazy('dashboard')
 
 
 def profile(request):
