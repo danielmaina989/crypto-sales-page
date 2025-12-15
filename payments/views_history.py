@@ -5,11 +5,13 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 import csv
-from datetime import datetime
-from django.utils.timezone import make_aware
+from datetime import datetime, timedelta
+from django.utils.timezone import make_aware, now
 from decimal import Decimal, InvalidOperation
 from payments.decorators import audit_and_require_payment_view
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models.functions import TruncDate
+from django.db.models import Sum, Count
 
 # Try to import reportlab for PDF export; if unavailable we'll fallback to CSV
 try:
@@ -276,3 +278,36 @@ def access_logs_api(request):
         'page_size': page_size,
         'logs': data,
     })
+
+
+@login_required
+def history_timeseries(request):
+    """Return last 30 days of payment totals for the logged-in user.
+
+    Response format:
+    { labels: ['2025-11-16', ...], totals: [123.45, ...], counts: [1, ...] }
+    """
+    end = now().date()
+    start = end - timedelta(days=29)  # inclusive 30 days
+
+    qs = Payment.objects.filter(user=request.user, created_at__date__gte=start, created_at__date__lte=end)
+    qs = qs.annotate(day=TruncDate('created_at')).values('day').annotate(total=Sum('amount'), count=Count('id')).order_by('day')
+
+    # build map day -> totals
+    data_map = {entry['day'].isoformat(): {'total': float(entry['total'] or 0), 'count': entry['count']} for entry in qs}
+
+    labels = []
+    totals = []
+    counts = []
+    for i in range(0, 30):
+        d = start + timedelta(days=i)
+        key = d.isoformat()
+        labels.append(key)
+        if key in data_map:
+            totals.append(data_map[key]['total'])
+            counts.append(data_map[key]['count'])
+        else:
+            totals.append(0)
+            counts.append(0)
+
+    return JsonResponse({'labels': labels, 'totals': totals, 'counts': counts})

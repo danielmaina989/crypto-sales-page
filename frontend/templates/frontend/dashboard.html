@@ -1,11 +1,155 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+{% load payments_tags %}
+
 {% block title %}Dashboard{% endblock %}
+
+{% block page_css %}
+<style>
+.dashboard-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:12px; }
+.summary-card{ padding:16px; border-radius:12px; background:linear-gradient(180deg,#fff,#fbfdff); box-shadow:var(--shadow-card); }
+.recent-list{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+.recent-item{ display:flex; justify-content:space-between; gap:12px; padding:10px; border-radius:8px; background:#fff; border:1px solid rgba(15,23,42,0.03); }
+.quick-actions{ display:flex; gap:8px; margin-top:12px; }
+.table-compact{ width:100%; border-collapse:collapse; margin-top:12px; }
+.table-compact th, .table-compact td{ text-align:left; padding:8px; border-bottom:1px solid #f3f4f6; }
+.chart-card{ padding:16px; background:var(--color-surface); border-radius:12px; box-shadow:var(--shadow-card); }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:12px;">
-    <h1>Dashboard (placeholder)</h1>
-    <a href="{% url 'home' %}" class="btn-primary">Back to home</a>
+    <h1>Your dashboard</h1>
+    <a href="{% url 'home' %}" class="btn-secondary">Back to home</a>
   </div>
-  <p>Welcome to your dashboard.</p>
+
+  <div class="dashboard-grid">
+    <div class="summary-card">
+      <h3>Total spent</h3>
+      <div style="font-size:20px; font-weight:700;">{{ total_spent|format_kes }}</div>
+      <div class="text-muted">Over {{ total_count }} transactions</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Average order</h3>
+      <div style="font-size:20px; font-weight:700;">{{ avg_amount|floatformat:2|format_kes }}</div>
+      <div class="text-muted">Per transaction</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Success rate</h3>
+      <div style="font-size:20px; font-weight:700;">{{ success_rate }}%</div>
+      <div class="text-muted">{{ success_count }} succeeded • {{ failed_count }} failed</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Pending</h3>
+      <div style="font-size:20px; font-weight:700;">{{ pending_count }}</div>
+      <div class="text-muted">Awaiting confirmation</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:16px; margin-top:18px;">
+    <div style="flex:1;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Recent payments</h2>
+        <div class="quick-actions">
+          <a href="{% url 'payments:history' %}" class="btn-secondary">View history</a>
+          <a href="{% url 'market' %}" class="btn-primary">Buy now</a>
+        </div>
+      </div>
+
+      {% if recent_payments %}
+        <div class="recent-list">
+          {% for p in recent_payments %}
+            <div class="recent-item">
+              <div>
+                <div style="font-weight:700;">{{ p.amount|format_kes }}</div>
+                <div class="text-muted">{{ p.created_at|date:"M d, Y H:i" }} • {{ p.phone_number }}</div>
+              </div>
+              <div style="text-align:right; min-width:140px;">
+                <div class="badge {% if p.status == 'success' %}badge-success{% elif p.status == 'pending' %}badge-pending{% else %}badge-failed{% endif %}">{{ p.get_status_display }}</div>
+                <div style="margin-top:8px;"><a href="{% url 'payments:history_detail' p.id %}" class="btn-secondary">Details</a></div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted">You have no recent payments.</p>
+      {% endif %}
+    </div>
+
+    <div style="width:420px;">
+      <div class="chart-card">
+        <h3>Last 30 days</h3>
+        <canvas id="paymentsChart" width="400" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <h3>Recent activity</h3>
+    <table class="table-compact">
+      <thead>
+        <tr><th>ID</th><th>Amount</th><th>Phone</th><th>Status</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        {% for p in recent_payments %}
+          <tr>
+            <td>#{{ p.id }}</td>
+            <td>{{ p.amount|format_kes }}</td>
+            <td>{{ p.phone_number }}</td>
+            <td>{{ p.get_status_display }}</td>
+            <td>{{ p.created_at|date:"M d, Y H:i" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
 </div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(async function(){
+  try{
+    const resp = await fetch('{% url "payments:history_timeseries" %}');
+    const data = await resp.json();
+    const ctx = document.getElementById('paymentsChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels.map(l => new Date(l).toLocaleDateString()),
+        datasets: [{
+          label: 'KES totals',
+          data: data.totals,
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79,70,229,0.08)',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context){
+                const v = context.raw || 0;
+                return 'KES ' + Number(v).toLocaleString();
+              }
+            }
+          }
+        }
+      }
+    });
+  }catch(e){ console.error('Chart load failed', e); }
+})();
+</script>
+{% endblock %}
+
 {% endblock %}
