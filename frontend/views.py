@@ -4,6 +4,11 @@ from django.http import JsonResponse
 import requests
 import concurrent.futures
 
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, Avg, Count
+from payments.models import Payment
+
+
 def home(request):
     return render(request, 'frontend/index.html')
 
@@ -20,9 +25,42 @@ def whitepapers(request):
 def about(request):
     return render(request, 'frontend/about.html')
 
-# Dashboard page (simple placeholder for now)
+# Dashboard page (user-only)
+@login_required
 def dashboard(request):
-    return render(request, 'frontend/dashboard.html')
+    user = request.user
+    # Recent payments (last 5)
+    recent = Payment.objects.filter(user=user).order_by('-created_at')[:5]
+
+    # Aggregates
+    stats_qs = Payment.objects.filter(user=user)
+    agg = stats_qs.aggregate(
+        total_spent=Sum('amount'),
+        avg_amount=Avg('amount'),
+        total_count=Count('id'),
+    )
+    total_spent = agg.get('total_spent') or 0
+    avg_amount = agg.get('avg_amount') or 0
+    total_count = agg.get('total_count') or 0
+
+    success_count = stats_qs.filter(status='success').count()
+    failed_count = stats_qs.filter(status='failed').count()
+    pending_count = stats_qs.filter(status='pending').count()
+
+    success_rate = (success_count / total_count * 100) if total_count else 0
+
+    context = {
+        'total_spent': total_spent,
+        'avg_amount': avg_amount,
+        'total_count': total_count,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'pending_count': pending_count,
+        'success_rate': round(success_rate, 1),
+        'recent_payments': recent,
+    }
+    return render(request, 'frontend/dashboard.html', context)
+
 
 def market_prices(request):
     """Return cached market prices (coins + USD->KES rate). Cached for 5 minutes."""
