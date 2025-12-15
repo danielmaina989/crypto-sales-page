@@ -94,12 +94,12 @@ if shared_task is not None:
                     'max_attempts': configured_max,
                     'delay': configured_delay,
                 })
-            # mark as failed after exhausting retries
-            payment.status = 'failed'
-            payment.error_message = str(exc)
+            # mark as pending after exhausting retries due to transient errors so callback can still update
+            payment.status = 'pending'
+            payment.error_message = f'Exhausted polling retries due to upstream error: {str(exc)[:500]}'
             payment.updated_at = timezone.now()
             payment.save()
-            logger.error('poll_payment_status: task=%s exhausted retries for payment_id=%s, marked failed', task_id, payment_id)
+            logger.error('poll_payment_status: task=%s exhausted retries for payment_id=%s due to errors; left as pending for webhook', task_id, payment_id)
             return None
 
         # Defensive handling if result is None or not a dict
@@ -113,15 +113,21 @@ if shared_task is not None:
                     'delay': configured_delay,
                 })
             else:
-                payment.status = 'failed'
-                payment.error_message = f'Unexpected query result: {result}'
+                # Keep payment as pending when result is unexpected, allow webhook/callback to determine final state
+                payment.status = 'pending'
+                payment.error_message = f'Unexpected query result after retries: {result}'
                 payment.updated_at = timezone.now()
                 payment.save()
-                logger.error('poll_payment_status: task=%s exhausted attempts for payment_id=%s; unexpected result final', task_id, payment_id)
+                logger.error('poll_payment_status: task=%s exhausted attempts for payment_id=%s; unexpected result retained as pending', task_id, payment_id)
                 return payment
 
         # parse result
-        result_code = result.get('ResultCode')
+        result_code_raw = result.get('ResultCode')
+        try:
+            result_code = int(result_code_raw) if result_code_raw is not None else None
+        except Exception:
+            logger.warning('poll_payment_status: task=%s could not coerce ResultCode to int for payment %s: %r', task_id, payment_id, result_code_raw)
+            result_code = None
         if result_code == 0:
             receipt = result.get('MpesaReceiptNumber') or result.get('ReceiptNumber')
             payment.status = 'success'
@@ -145,8 +151,9 @@ if shared_task is not None:
             })
 
         # exhausted attempts -> mark failed with details from response
+        # Only mark as failed here because we have a definitive response (non-zero ResultCode) after retries
         payment.status = 'failed'
-        payment.error_code = str(result_code)
+        payment.error_code = str(result_code) if result_code is not None else str(result_code_raw)
         payment.error_message = result.get('ResultDesc') if isinstance(result, dict) else str(result)
         payment.updated_at = timezone.now()
         payment.save()

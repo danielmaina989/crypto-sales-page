@@ -185,6 +185,68 @@ The command is safe:
 
 ---
 
+# 🔁 Payment reconciliation (recovering mis-labeled payments)
+
+Sometimes MPESA callbacks arrive but the app did not update the DB (network hiccup, webhook routed to old ngrok URL, or transient errors). To help recover those records we provide a safe reconciliation utility that scans stored `callback_raw_data` and marks payments as `success` when the callback indicates a successful STK result.
+
+Files provided
+
+- `payments/management/commands/reconcile_payments.py` - management command that inspects `Payment.callback_raw_data` and can mark `failed` payments as `success` when the callback payload contains a success ResultCode (non-destructive by default).
+- `payments/scripts/find_failed_but_success.py` - quick convenience script to list candidate payments whose stored callback appears successful.
+- `payments/scripts/apply_reconcile.py` - one-off script (used internally) to apply reconciliation updates.
+
+Important safety notes
+
+- The command defaults to a dry-run. It will only show what _would_ be changed unless you pass `--apply` (the command in this repo uses `--apply` semantics in `cleanup_failed_payments`; `reconcile_payments` in the codebase also follows a dry-run-first approach).
+- Always create a DB backup (or take a snapshot) before applying mass updates in production.
+- Reconciliation should be run by an admin or a trusted maintainer only. Access to payment data is sensitive.
+
+Usage examples
+
+Dry-run (see what would be updated):
+
+```bash
+# Inspect candidates without changing the DB
+python manage.py reconcile_payments --dry-run
+
+# Inspect and limit to N records (useful for testing)
+python manage.py reconcile_payments --dry-run --limit 100
+```
+
+Apply changes (make updates):
+
+```bash
+# Apply reconciliation updates to all candidates
+python manage.py reconcile_payments
+
+# Apply but only to newest 50 candidates (safer incremental run)
+python manage.py reconcile_payments --limit 50
+```
+
+Helper scripts (ad-hoc)
+
+If you prefer to run the small helper script directly from the shell (not recommended for production), you can run the `payments/scripts/find_failed_but_success.py` to list candidates, or `payments/scripts/apply_reconcile.py` to apply fixes. These are convenience scripts intended for maintainers and are not wrapped with the same safety flags as the management command.
+
+```bash
+# List candidates (ad-hoc)
+python manage.py shell -c "exec(open('payments/scripts/find_failed_but_success.py').read())"
+
+# Apply reconcile script (ad-hoc) — this will modify the DB immediately
+python manage.py shell -c "exec(open('payments/scripts/apply_reconcile.py').read())"
+```
+
+After reconciliation
+
+- Re-run `python manage.py makemigrations && python manage.py migrate` only if you change models.
+- Re-run your test suite (`python manage.py test`) if you made logic changes.
+
+If you want, I can also:
+
+- Add a short admin-only page that lists reconciliation candidates and allows approving changes from the admin UI.
+- Add an audit log entry each time a reconciliation changes a `Payment` record (recommended for compliance).
+
+---
+
 # ⚠️ Notes & Best Practices
 
 ### Security

@@ -193,6 +193,12 @@ input:focus, textarea:focus{ outline:none; border-color:var(--color-primary); bo
   border-bottom: 1px solid rgba(15,23,42,0.03);
 }
 
+/* Make the navbar transparent and overlay the hero on the landing page */
+.landing .site-nav{
+  background: transparent;
+  border-bottom: none;
+}
+
 /* Use a flex layout to clearly separate brand / links / actions */
 .site-nav__inner{
   max-width: var(--max-width);
@@ -218,15 +224,34 @@ input:focus, textarea:focus{ outline:none; border-color:var(--color-primary); bo
   flex: 1 1 auto; /* grow to take available space */
   justify-content:flex-start;
   min-width: 260px; /* ensure links area doesn't collapse */
+  flex-wrap: nowrap; /* prevent unwanted vertical stacking */
+  overflow-x: auto; /* allow horizontal scrolling if too many items */
 }
-.site-nav__links li a{ color:inherit; text-decoration:none; padding:6px 8px; }
+.site-nav__links li a{ color:inherit; text-decoration:none; padding:6px 8px; display:inline-block; white-space:nowrap; }
 
 /* Actions remain right-aligned */
-.site-nav__actions{ margin-left:auto; display:flex; gap:10px; align-items:center; flex: 0 0 auto; }
+.site-nav__actions{ margin-left:auto; display:flex; gap:10px; align-items:center; flex: 0 0 auto; z-index:70; }
 
-@media (max-width: 1024px){
-  .site-nav__inner{ padding-left: 20px; padding-right: 20px; }
-  .site-nav__links{ gap:16px; }
+/* Mobile behavior: hide inline links and show stacked menu when open */
+@media (max-width: 880px){
+  .site-nav__links{ display:none; }
+  .site-nav.open .site-nav__links{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding:12px 20px;
+    background: var(--color-surface);
+    position:absolute;
+    left:0;
+    right:0;
+    top:100%;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    z-index:9999; /* ensure menu overlays actions */
+  }
+  .site-nav.open .site-nav__links li{ width:100%; }
+  .site-nav.open .site-nav__links li a{ display:block; width:100%; padding:10px 12px; }
+  /* Ensure actions stay visible on mobile (on the right) */
+  .site-nav__actions{ gap:8px; }
 }
 
 @media (max-width: 720px){
@@ -397,3 +422,56 @@ select.input { appearance: none; -webkit-appearance: none; -moz-appearance: none
 @media (max-width: 480px){
   .full-bleed { margin-left: calc(-1 * (100vw - 100%)/2); margin-right: calc(-1 * (100vw - 100%)/2); }
 }
+
+/* --- Navbar toggle (hamburger) + small fixes appended --- */
+.site-nav__toggle{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  width:44px;
+  height:44px;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:8px;
+}
+.site-nav__toggle .hamburger{
+  display:block;
+  width:22px;
+  height:2px;
+  background:var(--color-text);
+  position:relative;
+}
+.site-nav__toggle .hamburger::before,
+.site-nav__toggle .hamburger::after{
+  content: '';
+  position:absolute;
+  left:0;
+  width:22px;
+  height:2px;
+  background:var(--color-text);
+}
+.site-nav__toggle .hamburger::before{ top:-7px; }
+.site-nav__toggle .hamburger::after{ top:7px; }
+
+@media (max-width: 880px){
+  .site-nav__toggle{ display:flex; }
+}
+
+/* smooth scrolling for overflowed links */
+.site-nav__links{ -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+
+/* ensure actions do not wrap */
+.site-nav__actions > * { white-space: nowrap; }
+
+/* minor spacing */
+.site-nav__brand{ margin-right: 18px; }
+
+/* stacking contexts */
+.site-nav{ position:relative; }
+.site-nav.open{ z-index:9998; }
+.site-nav.open .site-nav__links{ z-index:10000; }
+
+/* ensure inline forms/buttons in actions render consistently */
+.site-nav__actions form{ display:inline; }
+.site-nav__actions form button{ margin:0; }

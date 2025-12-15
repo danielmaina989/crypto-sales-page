@@ -1,0 +1,38 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Log in{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:520px; margin-top:48px;">
+  <div class="card">
+    <h2>Log in</h2>
+    <p class="text-muted">Access your dashboard and payment history.</p>
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      {% if form.errors %}
+        <div class="alert alert-error">Please correct the errors below.</div>
+      {% endif %}
+
+      <div class="form-field">
+        <label class="form-field__label">Username</label>
+        <input type="text" name="username" class="form-control" required />
+      </div>
+
+      <div class="form-field">
+        <label class="form-field__label">Password</label>
+        <input type="password" name="password" class="form-control" required />
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+        <button class="btn-primary">Log in</button>
+        <a href="{% url 'password_reset' %}" class="btn-secondary">Forgot password?</a>
+      </div>
+    </form>
+
+    <div style="margin-top:12px;">Don't have an account? <a href="{% url 'register' %}">Register</a></div>
+  </div>
+</div>
+{% endblock %}
+

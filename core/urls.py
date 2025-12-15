@@ -17,12 +17,21 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from users import views as users_views
+from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Top-level logout endpoint: use LogoutView which will redirect to LOGOUT_REDIRECT_URL
+    path('logout/', LogoutView.as_view(), name='logout'),
+
     path('', include('frontend.urls')),
     path('payments/', include('payments.urls')),
-    # Built-in auth views (login, logout, password reset)
+
+    # Replace default login with IntelligentLoginView at /accounts/login/
+    path('accounts/login/', users_views.IntelligentLoginView.as_view(), name='login'),
+
+    # Built-in auth views (password reset, logout already handled) under /accounts/
     path('accounts/', include('django.contrib.auth.urls')),
     # Custom registration & profile endpoints
     path('accounts/register/', users_views.register, name='register'),
