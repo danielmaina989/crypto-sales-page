@@ -1,0 +1,35 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Create account{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'frontend/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card card">
+    <h2>Create account</h2>
+    <p class="auth-meta">Start buying crypto securely.</p>
+
+    <form method="post" action="{% url 'register' %}">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+
+      {{ form.as_p }}
+
+      <div class="auth-actions">
+        <button type="submit" class="btn-primary">Create account</button>
+      </div>
+    </form>
+
+    <div class="auth-footer">
+      Already have an account? <a href="{% url 'login' %}">Log in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

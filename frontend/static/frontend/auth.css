@@ -1,0 +1,68 @@
+:root{
+  --color-primary: #6b46c1;
+  --color-primary-dark: #553c9a;
+  --color-muted: #6b7280;
+}
+
+.auth-wrapper {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+}
+
+.auth-card h2 {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.auth-meta {
+  color: var(--color-muted);
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.auth-footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.auth-footer a {
+  font-weight: 600;
+}
+
+.alert-error {
+  background: #fee2e2;
+  color: #7f1d1d;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+/* Make form controls slightly larger on auth pages */
+.auth-card .form-control {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+@media (max-width: 480px) {
+  .auth-wrapper { padding: 28px 12px; }
+  .auth-card { padding: 18px; }
+}
+
