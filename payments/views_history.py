@@ -329,33 +329,51 @@ def download_receipt(request, pk: int):
     if not payment:
         return HttpResponse('Receipt not available', status=404)
 
-    # Generate PDF receipt for the payment using ReportLab
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    # If ReportLab is installed, generate a PDF receipt on the fly.
+    if _HAS_REPORTLAB:
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
 
-    # Title
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(20 * mm, height - 30 * mm, "Payment Receipt")
-    p.setFont("Helvetica", 12)
+        # Title
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(20 * mm, height - 30 * mm, "Payment Receipt")
+        p.setFont("Helvetica", 12)
 
-    # Payment details
-    p.drawString(20 * mm, height - 50 * mm, f"ID: {payment.id}")
-    p.drawString(100 * mm, height - 50 * mm, f"Phone: {payment.phone_number}")
-    p.drawString(180 * mm, height - 50 * mm, f"Amount: KES {payment.amount}")
-    p.drawString(260 * mm, height - 50 * mm, f"Status: {payment.status}")
-    p.drawString(340 * mm, height - 50 * mm, f"Receipt: {payment.mpesa_receipt_number or '-'}")
-    p.drawString(420 * mm, height - 50 * mm, f"Date: {payment.created_at.strftime('%Y-%m-%d %H:%M')}")
+        # Payment details
+        p.drawString(20 * mm, height - 50 * mm, f"ID: {payment.id}")
+        p.drawString(100 * mm, height - 50 * mm, f"Phone: {payment.phone_number}")
+        p.drawString(180 * mm, height - 50 * mm, f"Amount: KES {payment.amount}")
+        p.drawString(260 * mm, height - 50 * mm, f"Status: {payment.status}")
+        p.drawString(340 * mm, height - 50 * mm, f"Receipt: {payment.mpesa_receipt_number or '-'}")
+        p.drawString(420 * mm, height - 50 * mm, f"Date: {payment.created_at.strftime('%Y-%m-%d %H:%M')}")
 
-    # Callback data (truncated for brevity)
-    p.drawString(20 * mm, height - 70 * mm, "Callback Data:")
-    callback_data = " | ".join(f"{k}: {v}" for k, v in payment.callback_data.items())
-    p.drawString(20 * mm, height - 80 * mm, callback_data[:100] + ("..." if len(callback_data) > 100 else ""))
+        # Callback data (truncated for brevity)
+        try:
+            callback_items = []
+            if isinstance(payment.callback_raw_data, dict):
+                # join top-level keys for summary
+                for k, v in payment.callback_raw_data.items():
+                    callback_items.append(f"{k}: {str(v)}")
+            else:
+                callback_items.append(str(payment.callback_raw_data))
+            callback_data = " | ".join(callback_items)
+        except Exception:
+            callback_data = ''
 
-    p.showPage()
-    p.save()
+        p.drawString(20 * mm, height - 70 * mm, "Callback Data:")
+        p.drawString(20 * mm, height - 80 * mm, (callback_data or '')[:200])
 
-    buffer.seek(0)
-    response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = f"attachment; filename=receipt_{pk}.pdf"
-    return response
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f"attachment; filename=receipt_{pk}.pdf"
+        return response
+
+    # Fallback: serve a sample PDF file if ReportLab is not available
+    sample_path = os.path.join(settings.BASE_DIR, 'frontend', 'templates', 'frontend', 'receipts', 'sample_receipt.pdf')
+    if not os.path.exists(sample_path):
+        return HttpResponse('Receipt not available', status=404)
+    return FileResponse(open(sample_path, 'rb'), as_attachment=True, filename=f'receipt_{pk}.pdf')
