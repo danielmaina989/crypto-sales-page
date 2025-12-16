@@ -47,6 +47,9 @@
 
     {% block content %}{% endblock %}
 
+    <!-- Site footer -->
+    {% include 'frontend/components/footer.html' %}
+
     <!-- Main javascript -->
     <script src="{% static 'frontend/crypto.js' %}"></script>
     <script src="{% static 'frontend/ui.js' %}"></script>
