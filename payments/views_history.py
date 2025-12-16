@@ -14,6 +14,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models.functions import TruncDate
 from django.db.models import Sum, Count
 import os
+import io
 
 # Try to import reportlab for PDF export; if unavailable we'll fallback to CSV
 try:
@@ -172,36 +173,37 @@ def export_payments_csv(queryset):
 
 
 def export_payments_pdf(queryset):
-    response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = "attachment; filename=payment_history.pdf"
-
-    p = canvas.Canvas(response, pagesize=A4)
+    # Generate PDF receipt for the payment using ReportLab
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    y = height - 20 * mm
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(20 * mm, y, "Payment History")
-    y -= 10 * mm
+    # Title
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(20 * mm, height - 30 * mm, "Payment Receipt")
+    p.setFont("Helvetica", 12)
 
-    p.setFont("Helvetica", 10)
+    # Payment details
+    for i, item in enumerate(queryset):
+        y = height - (50 + i * 10) * mm
+        p.drawString(20 * mm, y, f"ID: {item.id}")
+        p.drawString(100 * mm, y, f"Phone: {item.phone_number}")
+        p.drawString(180 * mm, y, f"Amount: KES {item.amount}")
+        p.drawString(260 * mm, y, f"Status: {item.status}")
+        p.drawString(340 * mm, y, f"Receipt: {item.mpesa_receipt_number or '-'}")
+        p.drawString(420 * mm, y, f"Date: {item.created_at.strftime('%Y-%m-%d %H:%M')}")
 
-    for item in queryset:
-        if y < 20 * mm:
-            p.showPage()
-            y = height - 20 * mm
-            p.setFont("Helvetica", 10)
-
-        text = (
-            f"ID: {item.id} | Phone: {item.phone_number} | "
-            f"Amount: KES {item.amount} | Status: {item.status} | "
-            f"Receipt: {item.mpesa_receipt_number or '-'} | "
-            f"Date: {item.created_at.strftime('%Y-%m-%d %H:%M')}"
-        )
-        p.drawString(20 * mm, y, text)
-        y -= 7 * mm
+    # Callback data (truncated for brevity)
+    p.drawString(20 * mm, y - 20 * mm, "Callback Data:")
+    callback_data = " | ".join(f"{k}: {v}" for k, v in item.callback_data.items())
+    p.drawString(20 * mm, y - 30 * mm, callback_data[:100] + ("..." if len(callback_data) > 100 else ""))
 
     p.showPage()
     p.save()
+
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = "attachment; filename=payment_receipt.pdf"
     return response
 
 
@@ -323,8 +325,37 @@ def download_receipt(request, pk: int):
     In production, replace with real receipt generation (WeasyPrint/reportlab).
     """
     # For safety, only allow owner or staff (decorator enforces this)
-    sample_path = os.path.join(settings.BASE_DIR, 'frontend', 'templates', 'frontend', 'receipts', 'sample_receipt.pdf')
-    if not os.path.exists(sample_path):
+    payment = get_object_or_404(Payment, pk=pk, user=request.user)
+    if not payment:
         return HttpResponse('Receipt not available', status=404)
-    return FileResponse(open(sample_path, 'rb'), as_attachment=True, filename=f'receipt_{pk}.pdf')
 
+    # Generate PDF receipt for the payment using ReportLab
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Title
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(20 * mm, height - 30 * mm, "Payment Receipt")
+    p.setFont("Helvetica", 12)
+
+    # Payment details
+    p.drawString(20 * mm, height - 50 * mm, f"ID: {payment.id}")
+    p.drawString(100 * mm, height - 50 * mm, f"Phone: {payment.phone_number}")
+    p.drawString(180 * mm, height - 50 * mm, f"Amount: KES {payment.amount}")
+    p.drawString(260 * mm, height - 50 * mm, f"Status: {payment.status}")
+    p.drawString(340 * mm, height - 50 * mm, f"Receipt: {payment.mpesa_receipt_number or '-'}")
+    p.drawString(420 * mm, height - 50 * mm, f"Date: {payment.created_at.strftime('%Y-%m-%d %H:%M')}")
+
+    # Callback data (truncated for brevity)
+    p.drawString(20 * mm, height - 70 * mm, "Callback Data:")
+    callback_data = " | ".join(f"{k}: {v}" for k, v in payment.callback_data.items())
+    p.drawString(20 * mm, height - 80 * mm, callback_data[:100] + ("..." if len(callback_data) > 100 else ""))
+
+    p.showPage()
+    p.save()
+
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = f"attachment; filename=receipt_{pk}.pdf"
+    return response
