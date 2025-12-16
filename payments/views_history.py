@@ -25,6 +25,14 @@ try:
 except Exception:
     _HAS_REPORTLAB = False
 
+# Try fpdf2 as a pure-Python fallback for PDF generation
+_HAS_FPDF = False
+try:
+    from fpdf import FPDF
+    _HAS_FPDF = True
+except Exception:
+    _HAS_FPDF = False
+
 
 @login_required
 def payment_history(request):
@@ -202,9 +210,7 @@ def export_payments_pdf(queryset):
     p.save()
 
     buffer.seek(0)
-    response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = "attachment; filename=payment_receipt.pdf"
-    return response
+    return FileResponse(buffer, as_attachment=True, filename="payment_receipt.pdf")
 
 
 @login_required
@@ -368,9 +374,140 @@ def download_receipt(request, pk: int):
         p.save()
 
         buffer.seek(0)
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = f"attachment; filename=receipt_{pk}.pdf"
-        return response
+        data = buffer.getvalue()
+        resp = HttpResponse(data, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename=receipt_{pk}.pdf'
+        return resp
+
+    # If ReportLab not present, try fpdf2 to generate a quick receipt (pure Python)
+    if _HAS_FPDF:
+        # Build a nicer receipt layout: header with logo, merchant info, itemized table, totals
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+
+        # Margins and fonts
+        pdf.set_margins(15, 15, 15)
+        pdf.set_font('Helvetica', '', 12)
+
+        # Try to include a logo from static files if available
+        logo_path = None
+        try:
+            possible = [
+                os.path.join(settings.BASE_DIR, 'frontend', 'static', 'frontend', 'images', 'logo.png'),
+                os.path.join(settings.BASE_DIR, 'static', 'frontend', 'images', 'logo.png'),
+            ]
+            for p in possible:
+                if os.path.exists(p):
+                    logo_path = p
+                    break
+        except Exception:
+            logo_path = None
+
+        if logo_path:
+            try:
+                pdf.image(logo_path, x=15, y=12, w=25)
+            except Exception:
+                logo_path = None
+
+        # Header text
+        pdf.set_xy(45, 12)
+        pdf.set_font('Helvetica', 'B', 16)
+        pdf.cell(0, 6, 'Crypto Sales Page', ln=True)
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_x(45)
+        pdf.cell(0, 6, 'Merchant: Example Merchant', ln=True)
+        pdf.set_x(45)
+        pdf.cell(0, 6, f'Date: {payment.created_at.strftime("%Y-%m-%d %H:%M")}', ln=True)
+
+        pdf.ln(8)
+
+        # Receipt / payment meta
+        pdf.set_font('Helvetica', 'B', 12)
+        pdf.cell(0, 6, f'Receipt #{payment.id}', ln=True)
+        pdf.set_font('Helvetica', '', 11)
+        pdf.cell(0, 6, f'Phone: {payment.phone_number}    MPESA Receipt: {payment.mpesa_receipt_number or "-"}', ln=True)
+        pdf.cell(0, 6, f'Status: {payment.status}', ln=True)
+        pdf.ln(6)
+
+        import textwrap
+        # Itemized section (we have a single item: description/amount)
+        description = (getattr(payment, 'description', None) or getattr(payment, 'account_ref', None) or 'Crypto Purchase')
+
+        # Ensure amount is formatted as KES with two decimals
+        try:
+            total_kes = float(payment.amount)
+        except Exception:
+            total_kes = float(getattr(payment, 'amount', 0) or 0)
+
+        def fmt_amt(a):
+            try:
+                return f'KES {a:,.2f}'
+            except Exception:
+                return f'KES {a}'
+
+        # Table header (column widths chosen to fit printable width: page width 210mm - margins 15*2 = 180mm)
+        pdf.set_font('Helvetica', 'B', 11)
+        th_h = 8
+        cw_desc = 70
+        cw_qty = 20
+        cw_unit = 40
+        cw_amount = 50
+        pdf.cell(cw_desc, th_h, 'Description', border=1)
+        pdf.cell(cw_qty, th_h, 'Qty', border=1, align='R')
+        pdf.cell(cw_unit, th_h, 'Unit (KES)', border=1, align='R')
+        pdf.cell(cw_amount, th_h, 'Amount (KES)', border=1, align='R')
+        pdf.ln(th_h)
+
+        # Table row (single). Shorten description to fit comfortably.
+        pdf.set_font('Helvetica', '', 11)
+        desc_short = textwrap.shorten(description, width=100, placeholder='...')
+        pdf.cell(cw_desc, th_h, desc_short, border=1)
+        # Smaller font for numeric columns to ensure large numbers fit
+        pdf.set_font('Helvetica', '', 10)
+        pdf.cell(cw_qty, th_h, '1', border=1, align='R')
+        pdf.cell(cw_unit, th_h, f'{total_kes:,.2f}', border=1, align='R')
+        pdf.cell(cw_amount, th_h, f'{total_kes:,.2f}', border=1, align='R')
+        pdf.ln(th_h)
+
+        # Totals: leave space for description+qty+unit columns then print total in amount column
+        pdf.set_x(15)
+        pdf.cell(cw_desc + cw_qty + cw_unit, th_h, '', border=0)
+        pdf.set_font('Helvetica', 'B', 11)
+        pdf.cell(cw_amount, th_h, fmt_amt(total_kes), border=1, align='R')
+        pdf.ln(12)
+
+        # Footer / notes
+        pdf.set_font('Helvetica', '', 9)
+        pdf.multi_cell(0, 6, 'Thank you for your purchase. This receipt is automatically generated by Crypto Sales Page.')
+
+        # Optional: include callback raw data truncated
+        try:
+            raw_text = ''
+            if getattr(payment, 'callback_raw_data', None):
+                raw = payment.callback_raw_data
+                if isinstance(raw, dict):
+                    raw_text = ' | '.join(f'{k}:{v}' for k, v in list(raw.items())[:6])
+                else:
+                    raw_text = str(raw)[:300]
+            if raw_text:
+                pdf.ln(4)
+                pdf.set_font('Helvetica', 'B', 10)
+                pdf.cell(0, 6, 'Callback (truncated):', ln=True)
+                pdf.set_font('Helvetica', '', 8)
+                pdf.multi_cell(0, 5, raw_text)
+        except Exception:
+            pass
+
+        # Produce bytes and return
+        out = pdf.output(dest='S')
+        if isinstance(out, (bytes, bytearray)):
+            data = bytes(out)
+        else:
+            data = str(out).encode('latin-1')
+        resp = HttpResponse(data, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename=receipt_{pk}.pdf'
+        return resp
 
     # Fallback: serve a sample PDF file if ReportLab is not available
     sample_path = os.path.join(settings.BASE_DIR, 'frontend', 'templates', 'frontend', 'receipts', 'sample_receipt.pdf')

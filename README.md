@@ -498,3 +498,94 @@ CACHES = {
 3. Implement structured JSON logging or integrate `structlog` for machine-parsable logs. — [ ]
 4. Add notifications (payment_confirmed) via Celery tasks and document required env vars (e.g., TWILIO credentials) in `.env.example`. — [ ]
 5. Polish frontend: mobile-first tweaks, hero visuals, and finalize component library (cards/forms/buttons). — [ ]
+
+---
+
+## PDFs, Receipts & Whitepapers
+
+This project can generate PDF receipts (for payments) and ships with small sample PDFs for whitepapers, API spec and security policy used on the marketing pages.
+
+There are two options for PDF generation used by the project:
+
+1. ReportLab (recommended for production-quality receipts)
+   - Pros: powerful layout, images, font embedding, stable for production.
+   - Cons: requires native C dependencies on some platforms (Cairo/Freetype or build tools) and can be harder to install in CI without extra packages.
+
+2. fpdf2 (pure-Python fallback)
+   - Pros: pure Python, zero native deps, lightweight, used as a reliable fallback by this project.
+   - Cons: fewer built-in layout features compared to ReportLab.
+
+Project behavior
+- If `reportlab` is installed in your environment, the app will use ReportLab to generate PDF receipts on the fly.
+- If `reportlab` is not available, the app uses `fpdf2` (pure-Python) to generate a simple receipt. The project records `fpdf2` in `requirements.txt` and includes a generated sample receipt.
+- If neither library is available the app falls back to serving the static sample PDF located at `frontend/templates/frontend/receipts/sample_receipt.pdf`.
+
+Install ReportLab (optional, production)
+
+On Debian/Ubuntu systems you'll typically need to install system libraries before installing ReportLab. Example steps:
+
+```bash
+# Debian / Ubuntu example
+sudo apt update
+sudo apt install -y pkg-config libcairo2-dev libfreetype6-dev libjpeg-dev zlib1g-dev build-essential
+# then install reportlab
+pip install reportlab
+```
+
+On macOS (Homebrew):
+
+```bash
+brew install pkg-config cairo freetype libpng
+pip install reportlab
+```
+
+If you prefer not to install system packages, the project already includes `fpdf2` as a fallback (pure-Python). To install project dependencies with the fallback, run:
+
+```bash
+pip install -r requirements.txt
+```
+
+Regenerating or replacing sample PDFs
+
+- Sample PDFs used by the marketing pages live in `static/frontend/docs/`:
+  - `whitepaper-sample.pdf`
+  - `api-spec-sample.pdf`
+  - `security-sample.pdf`
+
+- If you want to replace these with official PDFs, copy your real PDF files to that folder and keep the same filenames (or update the template links in `frontend/templates/frontend/whitepapers.html`).
+
+Quick command to regenerate the shipped sample PDFs using the pure-Python generator (requires `fpdf2`):
+
+```bash
+python - <<'PY'
+from fpdf import FPDF
+from pathlib import Path
+out = Path('static/frontend/docs')
+out.mkdir(parents=True, exist_ok=True)
+# quick example to create a single-page placeholder PDF
+pdf = FPDF()
+pdf.add_page()
+pdf.set_font('Helvetica', 'B', 16)
+pdf.cell(0, 10, 'Sample Whitepaper', ln=True, align='C')
+pdf.output(str(out / 'whitepaper-sample.pdf'))
+print('Regenerated sample whitepaper at', out / 'whitepaper-sample.pdf')
+PY
+```
+
+Testing receipts locally
+
+- To test the dynamic receipt endpoint locally for a payment `pk` (must be logged in as the payment owner), visit:
+
+```
+/payments/receipt/<pk>/download/
+```
+
+- The app will serve a generated PDF (ReportLab or fpdf2) or the static sample as a fallback.
+
+Security & distribution notes
+
+- Keep any real whitepapers, security policies, or API specifications in a secure location if they contain sensitive information.
+- Replace the sample PDFs with finalized documents before publishing the site.
+
+---
+
