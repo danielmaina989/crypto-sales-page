@@ -14,6 +14,10 @@
   /* Default spinner variables for light theme */
   --spinner-border: rgba(255,255,255,0.6);
   --spinner-top: rgba(255,255,255,1);
+
+  /* Button text defaults */
+  --btn-primary-text: #ffffff; /* primary button text color (keeps contrast) */
+  --btn-secondary-border: rgba(15,23,42,0.06);
 }
 
 /* === Dark theme variables (switch when html[data-theme='dark']) === */
@@ -21,14 +25,96 @@ html[data-theme="dark"]{
   --color-background: #0b1220;
   --color-surface: #0f1724;
   --color-text: #e6eef8;
-  --color-muted: #9ca3af;
-  --color-primary: #8b5cf6; /* slightly brighter primary on dark */
-  --color-primary-dark: #7c3aed;
+  --color-muted: #9aa5b1;
+  --color-border: rgba(255,255,255,0.06);
+  --color-primary: #7c5cf6; /* tuned primary */
+  --color-primary-dark: #6938f5;
   --color-accent: #fbbf24;
-  --shadow-card: 0 8px 24px rgba(2,6,23,0.6);
-  --spinner-border: rgba(255,255,255,0.25);
-  --spinner-top: rgba(255,255,255,0.9);
+  --shadow-card: 0 10px 30px rgba(2,6,23,0.7);
+  --spinner-border: rgba(255,255,255,0.18);
+  --spinner-top: rgba(255,255,255,0.95);
+
+  /* ensure primary button text remains readable on dark backgrounds */
+  --btn-primary-text: #0b1220; /* if your primary is very light, you can change; but we'll override below to white for contrast */
+  --btn-secondary-border: rgba(255,255,255,0.08);
 }
+
+/* Ensure .btn-primary always uses high-contrast text color (override dark theme inconsistent settings) */
+.btn-primary{ color: var(--btn-primary-text); background: var(--color-primary); border: 0; }
+html[data-theme='dark'] .btn-primary{ color: #ffffff; background: var(--color-primary); box-shadow: 0 6px 18px rgba(124,92,246,0.14); }
+
+/* Make nav's primary CTA stand out (slightly larger padding, visible on dark) */
+.site-nav__actions .btn-primary{ padding:10px 14px; font-weight:700; }
+html[data-theme='dark'] .site-nav__actions .btn-primary{ background: var(--color-primary); color: #fff; box-shadow: 0 8px 22px rgba(124,92,246,0.18); }
+
+/* Secondary buttons: make sure borders and text are visible on dark backgrounds */
+.btn-secondary{ border:1px solid var(--btn-secondary-border); color: var(--color-text); background:transparent; }
+html[data-theme='dark'] .btn-secondary{ color: var(--color-text); border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); }
+
+/* Ensure CTA contrast on hover in dark */
+.btn-primary:hover{ filter:brightness(1.03); }
+html[data-theme='dark'] .btn-primary:hover{ filter:brightness(1.05); }
+
+/* Focus state for accessibility on CTAs */
+.btn-primary:focus, .btn-secondary:focus{ outline: none; box-shadow: 0 0 0 4px rgba(124,92,246,0.18); }
+
+/* Nav action buttons spacing and visibility in dark */
+.site-nav__actions .btn-primary, .site-nav__actions .btn-secondary{ box-shadow: none; }
+html[data-theme='dark'] .site-nav__actions .btn-secondary{ background: transparent; }
+
+/* Logo switching: show dark logo when theme is dark */
+.logo-dark{ display:none; }
+/* Do not automatically hide .logo-light via CSS; JS will swap only when a dark logo file exists.
+html[data-theme='dark'] .logo-light{ display:none; }
+html[data-theme='dark'] .logo-dark{ display:inline-block; }
+*/
+
+/* Fallback filter when only a single (light) logo is present and we need to make it visible on dark backgrounds */
+.logo-dark-fallback-filter{ filter: invert(1) brightness(1.2) saturate(0.95); }
+
+/* Smooth transitions for theme change (respect prefers-reduced-motion) */
+:root, html[data-theme='dark']{
+  transition: background-color .18s ease, color .18s ease;
+}
+body, .card, .modal, .payment-modal-content, .site-nav{
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  :root, html[data-theme='dark'], body, .card, .modal, .payment-modal-content, .site-nav{ transition: none !important; }
+}
+
+/* Improve focus styles (accessible) */
+:focus{
+  outline: none;
+}
+a:focus, button:focus, input:focus, select:focus, .form-control:focus{
+  box-shadow: 0 0 0 4px rgba(124,92,246,0.16);
+  border-color: var(--color-primary);
+}
+
+/* Inputs in dark mode */
+html[data-theme='dark'] input, html[data-theme='dark'] select, html[data-theme='dark'] textarea, html[data-theme='dark'] .form-control{
+  background: #08101a;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+/* Modal backdrop stronger in dark */
+.payment-modal{ background: rgba(0,0,0,0.6); }
+html[data-theme='dark'] .payment-modal{ background: rgba(2,6,23,0.86); }
+
+/* Buttons contrast in dark */
+.btn-primary{ background: var(--color-primary); color: #fff; }
+.btn-secondary{ color: var(--color-text); }
+
+/* Card surfaces in dark */
+html[data-theme='dark'] .card{ background: var(--color-surface); border: 1px solid var(--color-border); }
+
+/* Spinner tweaks already use variables above */
+
+/* Optional: subtle scrollbar for dark theme */
+html[data-theme='dark'] ::-webkit-scrollbar{ width:10px; height:10px; }
+html[data-theme='dark'] ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.06); border-radius:10px; }
 
 /* Base reset for this stylesheet (keeps small footprint) */
 body{
@@ -440,8 +526,6 @@ select.input { appearance: none; -webkit-appearance: none; -moz-appearance: none
   .site-nav__links{ display:none }
   .site-nav.open .site-nav__links{ display:flex; flex-direction:column }
 }
-
-/* end additions */
 
 /* --- Navbar toggle (hamburger) + small fixes appended --- */
 .site-nav__toggle{

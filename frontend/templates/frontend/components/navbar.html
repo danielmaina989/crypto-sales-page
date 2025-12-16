@@ -2,7 +2,11 @@
 <nav class="site-nav" role="navigation" aria-label="Main navigation">
   <div class="site-nav__inner container">
     <a class="site-nav__brand" href="{% url 'market' %}" title="View market">
-      <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo">
+      <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo logo-light">
+      <!-- Optional dark-mode logo: put a dark variant at frontend/images/logo-dark.png to show in dark theme -->
+      <img src="{% static 'frontend/images/logo-dark.png' %}" alt="Logo" class="site-nav__logo logo-dark" style="display:none">
+      <!-- Text fallback: shown by default, hidden when a working logo image is available -->
+      <span class="site-nav__brand-text" style="display:inline-block; font-weight:700; margin-left:8px;">Crypto Sales Page</span>
     </a>
 
     <button class="site-nav__toggle" aria-expanded="false" aria-controls="site-nav-links" aria-label="Toggle navigation">
@@ -33,8 +37,8 @@
         <a href="{% url 'register' %}" class="btn-primary" title="Create an account" aria-label="Sign up">Get started</a>
       {% endif %}
 
-      <!-- Theme toggle (basic client-side toggle) -->
-      <button id="theme-toggle" class="btn-secondary" title="Toggle theme" aria-label="Toggle theme">Theme</button>
+      <!-- Theme toggle (basic client-side toggle) - aria-pressed managed by JS -->
+      <button id="theme-toggle" class="btn-secondary" title="Toggle theme" aria-label="Toggle light or dark theme" aria-pressed="false">Theme</button>
     </div>
   </div>
 </nav>
@@ -73,19 +77,113 @@
     // Theme toggle: simple client-side toggle (stores preference in localStorage)
     var themeToggle = document.getElementById('theme-toggle');
     if(themeToggle){
-      var applyTheme = function(theme){
-        if(theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-        else document.documentElement.removeAttribute('data-theme');
+      // Check whether a dark-logo file actually exists (avoid showing broken img)
+      var logoLight = document.querySelector('.logo-light');
+      var logoDark = document.querySelector('.logo-dark');
+      var hasDarkLogo = false;
+      if(logoDark && logoDark.getAttribute('src')){
+        try{
+          var probe = new Image();
+          probe.onload = function(){
+            hasDarkLogo = true;
+            // If theme is already dark, swap logos now
+            try{
+              var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+              if(isDark && logoLight && logoDark){
+                logoLight.style.display = 'none';
+                logoDark.style.display = '';
+                logoLight.classList.remove('logo-dark-fallback-filter');
+              }
+            }catch(e){}
+          };
+          probe.onerror = function(){
+            hasDarkLogo = false;
+            // If dark theme active and dark logo missing, ensure fallback filter is applied
+            try{
+              if(document.documentElement.getAttribute('data-theme') === 'dark' && logoLight){
+                logoLight.classList.add('logo-dark-fallback-filter');
+                if(logoDark) logoDark.style.display = 'none';
+              }
+            }catch(e){}
+          };
+           probe.src = logoDark.getAttribute('src');
+         }catch(e){ hasDarkLogo = false; }
+       }
+
+      // helper: show textual brand if no usable logo images are available
+      var brandText = document.querySelector('.site-nav__brand-text');
+      function hideBrandText(){ if(brandText) brandText.style.display = 'none'; }
+      function showBrandText(){ if(brandText) brandText.style.display = ''; }
+
+      // If a light logo loads successfully, hide the brand text immediately
+      if(logoLight){
+        if(logoLight.complete && logoLight.naturalWidth && logoLight.naturalWidth>0){ hideBrandText(); }
+        logoLight.addEventListener('load', function(){ hideBrandText(); });
+        logoLight.addEventListener('error', function(){ /* keep text visible */ });
+      }
+
+      // If a dark logo loads successfully and we decide to show it, hide the brand text
+      if(logoDark){
+        if(logoDark.complete && logoDark.naturalWidth && logoDark.naturalWidth>0){ hideBrandText(); }
+        logoDark.addEventListener('load', function(){ hideBrandText(); });
+        logoDark.addEventListener('error', function(){ /* keep text visible */ });
+      }
+
+      // Also, when probe determines dark logo availability, re-evaluate visibility
+      var evaluateVisibilityAfterProbe = function(){
+        var lightOk = logoLight && logoLight.complete && logoLight.naturalWidth && logoLight.naturalWidth>0;
+        var darkOk = logoDark && logoDark.complete && logoDark.naturalWidth && logoDark.naturalWidth>0 && hasDarkLogo;
+        if(!lightOk && !darkOk){ showBrandText(); }
+        else { hideBrandText(); }
       };
-      // initialize
-      try{ var saved = localStorage.getItem('site-theme'); if(saved) applyTheme(saved); }catch(e){}
+      setTimeout(evaluateVisibilityAfterProbe, 100);
+
+      var applyTheme = function(theme){
+        if(theme === 'dark'){
+          document.documentElement.setAttribute('data-theme', 'dark');
+          themeToggle.setAttribute('aria-pressed', 'true');
+          themeToggle.textContent = 'Light';
+          themeToggle.title = 'Switch to light theme';
+          // If a real dark logo exists, show it; otherwise keep light logo and apply a readable filter
+          if(hasDarkLogo && logoLight && logoDark){
+            logoLight.style.display = 'none';
+            logoDark.style.display = '';
+            logoLight.classList.remove('logo-dark-fallback-filter');
+          } else if(logoLight){
+            // fallback: visually adapt the single logo for dark backgrounds
+            logoLight.style.display = '';
+            logoLight.classList.add('logo-dark-fallback-filter');
+            if(logoDark) logoDark.style.display = 'none';
+          }
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          themeToggle.setAttribute('aria-pressed', 'false');
+          themeToggle.textContent = 'Dark';
+          themeToggle.title = 'Switch to dark theme';
+          if(logoLight){ logoLight.style.display = ''; logoLight.classList.remove('logo-dark-fallback-filter'); }
+          if(logoDark) logoDark.style.display = 'none';
+        }
+      };
+
+      // Determine initial theme: saved > prefers-color-scheme > light
+      try{
+        var saved = null;
+        try { saved = localStorage.getItem('site-theme'); } catch(e) { saved = null; }
+        if(saved === 'dark' || saved === 'light'){
+          applyTheme(saved);
+        } else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+          applyTheme('dark');
+        } else {
+          applyTheme('light');
+        }
+      }catch(e){ console.warn('theme init failed', e); applyTheme('light'); }
 
       themeToggle.addEventListener('click', function(){
         try{
           var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
           var next = current === 'dark' ? 'light' : 'dark';
           applyTheme(next);
-          localStorage.setItem('site-theme', next);
+          try { localStorage.setItem('site-theme', next); } catch(e){}
         }catch(e){ console.error(e); }
       });
     }
