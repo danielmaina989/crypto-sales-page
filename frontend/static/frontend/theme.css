@@ -399,29 +399,31 @@ select.input { appearance: none; -webkit-appearance: none; -moz-appearance: none
 /* End payments history enhancements */
 
 /* Full-bleed utility: allows a band to stretch edge-to-edge while inner content stays centered */
-.full-bleed {
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  width: 100vw;
-  box-sizing: border-box;
+.full-bleed{
+  width:100vw;
+  margin-left:50%;
+  transform:translateX(-50%);
+  background:var(--color-surface);
 }
 
-/* Simple page hero band used on non-landing pages */
-.page-hero {
-  background: linear-gradient(180deg, rgba(107,70,193,0.04), rgba(255,255,255,0));
-  padding: 28px 0;
-  border-bottom: 1px solid rgba(15,23,42,0.04);
+/* Hero visual helper */
+.page-hero{ padding:40px 0; background: linear-gradient(180deg, #f8fafc, #ffffff); }
+.page-hero .container{ padding-top:24px; padding-bottom:24px }
+
+/* Fix for navbar centering: use a safe centered inner container instead of offset trick for most layouts */
+.site-nav{ position:relative; width:100%; background:var(--color-surface); border-bottom:1px solid rgba(15,23,42,0.03); }
+.site-nav__inner{ max-width:var(--max-width); margin:0 auto; padding-left:20px; padding-right:20px; display:flex; align-items:center; gap:16px }
+
+/* Ensure navbar links wrap gracefully on small screens */
+.site-nav__links{ flex-wrap:wrap; }
+
+/* Small mobile-first tweak */
+@media (max-width:880px){
+  .site-nav__links{ display:none }
+  .site-nav.open .site-nav__links{ display:flex; flex-direction:column }
 }
 
-.page-hero .container { padding-left: 24px; padding-right: 24px; }
-
-/* Ensure full-bleed doesn't create horizontal scroll on mobile */
-@media (max-width: 480px){
-  .full-bleed { margin-left: calc(-1 * (100vw - 100%)/2); margin-right: calc(-1 * (100vw - 100%)/2); }
-}
+/* end additions */
 
 /* --- Navbar toggle (hamburger) + small fixes appended --- */
 .site-nav__toggle{

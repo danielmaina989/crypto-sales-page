@@ -6,7 +6,7 @@ from .views import status, webhook
 from .views.initiate import initiate_payment
 from .views.status_api import payment_status
 from .views.simulate_callback import simulate_callback
-from .views_history import payment_history, payment_detail, access_logs_api, history_timeseries
+from .views_history import payment_history, payment_detail, access_logs_api, history_timeseries, download_receipt
 
 urlpatterns = [
     path('status/', status, name='payments-status'),
@@ -19,4 +19,5 @@ urlpatterns = [
     path('history/<int:pk>/', payment_detail, name='history_detail'),
     path('history/logs/', access_logs_api, name='access_logs_api'),
     path('history/timeseries/', history_timeseries, name='history_timeseries'),
+    path('receipt/<int:pk>/download/', download_receipt, name='receipt_download'),
 ]

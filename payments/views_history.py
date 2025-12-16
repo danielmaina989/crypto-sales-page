@@ -3,7 +3,8 @@ from django.contrib.auth.decorators import login_required
 from payments.models import Payment, PaymentAccessLog
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse
+from django.conf import settings
 import csv
 from datetime import datetime, timedelta
 from django.utils.timezone import make_aware, now
@@ -12,6 +13,7 @@ from payments.decorators import audit_and_require_payment_view
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models.functions import TruncDate
 from django.db.models import Sum, Count
+import os
 
 # Try to import reportlab for PDF export; if unavailable we'll fallback to CSV
 try:
@@ -311,3 +313,18 @@ def history_timeseries(request):
             counts.append(0)
 
     return JsonResponse({'labels': labels, 'totals': totals, 'counts': counts})
+
+
+@login_required
+@audit_and_require_payment_view('pk')
+def download_receipt(request, pk: int):
+    """Development: serve a sample PDF receipt for the payment.
+
+    In production, replace with real receipt generation (WeasyPrint/reportlab).
+    """
+    # For safety, only allow owner or staff (decorator enforces this)
+    sample_path = os.path.join(settings.BASE_DIR, 'frontend', 'templates', 'frontend', 'receipts', 'sample_receipt.pdf')
+    if not os.path.exists(sample_path):
+        return HttpResponse('Receipt not available', status=404)
+    return FileResponse(open(sample_path, 'rb'), as_attachment=True, filename=f'receipt_{pk}.pdf')
+
