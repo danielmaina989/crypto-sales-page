@@ -14,6 +14,10 @@
 .table-compact{ width:100%; border-collapse:collapse; margin-top:12px; }
 .table-compact th, .table-compact td{ text-align:left; padding:8px; border-bottom:1px solid #f3f4f6; }
 .chart-card{ padding:16px; background:var(--color-surface); border-radius:12px; box-shadow:var(--shadow-card); }
+.chart-canvas-wrapper { width: 100%; }
+/* Make canvas responsive: fill the wrapper and constrain height to avoid overstretching */
+.chart-canvas-wrapper { min-height: 200px; max-height: 360px; height: 260px; }
+.chart-canvas-wrapper canvas { width: 100% !important; height: 100% !important; display: block; }
 </style>
 {% endblock %}
 
@@ -83,7 +87,10 @@
     <div style="width:420px;">
       <div class="chart-card">
         <h3>Last 30 days</h3>
-        <canvas id="paymentsChart" width="400" height="240"></canvas>
+        <!-- Responsive canvas: size controlled by CSS to avoid overstretching -->
+        <div class="chart-canvas-wrapper" style="width:100%;">
+          <canvas id="paymentsChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -118,35 +125,110 @@
     const resp = await fetch('{% url "payments:history_timeseries" %}');
     const data = await resp.json();
     const ctx = document.getElementById('paymentsChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: data.labels.map(l => new Date(l).toLocaleDateString()),
-        datasets: [{
-          label: 'KES totals',
-          data: data.totals,
-          borderColor: '#4f46e5',
-          backgroundColor: 'rgba(79,70,229,0.08)',
-          tension: 0.3,
-          fill: true
-        }]
-      },
-      options: {
-        scales: {
-          y: { beginAtZero: true }
+
+    // function to get theme-aware palette
+    function palette(isDark){
+      return {
+        lineColor: isDark ? 'rgba(186,147,255,1)' : '#4f46e5',
+        fillColor: isDark ? 'rgba(186,147,255,0.28)' : 'rgba(79,70,229,0.12)',
+        gridColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.06)',
+        tickColor: isDark ? '#dbe7ff' : '#374151',
+        tooltipBg: isDark ? '#0b1220' : '#ffffff',
+        tooltipTitleColor: isDark ? '#e6eef8' : '#111827',
+        pointBorderColor: isDark ? '#ffffff' : '#ffffff'
+      };
+    }
+
+    function createChart(ctx, data, isDark){
+      const p = palette(isDark);
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels.map(l => new Date(l).toLocaleDateString()),
+          datasets: [{
+            label: 'KES totals',
+            data: data.totals,
+            borderColor: p.lineColor,
+            backgroundColor: p.fillColor,
+            pointBackgroundColor: p.lineColor,
+            pointBorderColor: p.pointBorderColor,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            borderWidth: 3,
+            tension: 0.24,
+            fill: true
+          }]
         },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: function(context){
-                const v = context.raw || 0;
-                return 'KES ' + Number(v).toLocaleString();
+        options: {
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: p.tickColor },
+              grid: { color: p.gridColor, lineWidth: 1 }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: p.tickColor },
+              grid: { color: p.gridColor, lineWidth: 1 }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: p.tickColor } },
+            tooltip: {
+              backgroundColor: p.tooltipBg,
+              titleColor: p.tooltipTitleColor,
+              bodyColor: isDark ? '#e6eef8' : '#111827',
+              callbacks: {
+                label: function(context){
+                  const v = context.raw || 0;
+                  return 'KES ' + Number(v).toLocaleString();
+                }
               }
             }
           }
         }
+      });
+    }
+
+    // create chart
+    let isDarkInit = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Set canvas wrapper height to a sensible default so chart won't overstretch
+    const wrapper = document.querySelector('.chart-canvas-wrapper');
+    if(wrapper){ wrapper.style.height = '260px'; }
+
+    let paymentsChart = createChart(ctx, data, isDarkInit);
+
+    // Observe theme changes and update chart styles dynamically
+    const observer = new MutationObserver(function(mutations){
+      for(const m of mutations){
+        if(m.attributeName === 'data-theme'){
+          const darkNow = document.documentElement.getAttribute('data-theme') === 'dark';
+          const p = palette(darkNow);
+          // update dataset colors
+          paymentsChart.data.datasets.forEach(ds=>{
+            ds.borderColor = p.lineColor;
+            ds.backgroundColor = p.fillColor;
+            ds.pointBackgroundColor = p.lineColor;
+            ds.pointBorderColor = p.pointBorderColor;
+          });
+          // update scales
+          paymentsChart.options.scales.x.ticks.color = p.tickColor;
+          paymentsChart.options.scales.x.grid.color = p.gridColor;
+          paymentsChart.options.scales.y.ticks.color = p.tickColor;
+          paymentsChart.options.scales.y.grid.color = p.gridColor;
+          // legend and tooltips
+          paymentsChart.options.plugins.legend.labels.color = p.tickColor;
+          paymentsChart.options.plugins.tooltip.backgroundColor = p.tooltipBg;
+          paymentsChart.options.plugins.tooltip.titleColor = p.tooltipTitleColor;
+          paymentsChart.options.plugins.tooltip.bodyColor = darkNow ? '#e6eef8' : '#111827';
+
+          paymentsChart.update();
+        }
       }
     });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
   }catch(e){ console.error('Chart load failed', e); }
 })();
 </script>
