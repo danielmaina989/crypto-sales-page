@@ -13,6 +13,7 @@ import os
 from payments.models import Payment
 from payments.utils import mpesa_api as _mpesa_api
 from payments.tasks import poll_payment_status
+from core.utils.permissions import rate_limit
 
 # Import requests exceptions if available
 try:
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @require_POST
+@rate_limit('mpesa_initiate', limit=4, period=60)
 def initiate_payment(request):
     payment = None
     try:
