@@ -6,3 +6,4 @@ redis==4.5.5
 twilio==8.2.0
 django-celery-results==2.5.1
 reportlab==3.6.12
+fpdf2==2.8.5
