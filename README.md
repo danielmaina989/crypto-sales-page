@@ -359,340 +359,142 @@ The following features and tasks have been implemented and tested in this reposi
 * [x] Created modular apps: `core/`, `payments/`, `users/`
 * [x] Split settings into `base.py`, `dev.py`, `prod.py`
 * [x] Added `payments.Payment` model with MPESA-related fields and indexes
-* [x] Implemented MPESA utilities: `payments/utils/mpesa_api.py`
+* [x] Implemented MPESA utilities: `payments/utils/mpesa_api.py` (includes token caching and safer headers)
 * [x] Added MPESA error mapping: `payments/utils/errors.py`
 * [x] Implemented MPESA callback endpoint: `payments/views/callback.py` (`/payments/mpesa/callback/`)
 * [x] Implemented STK initiation endpoint: `payments/views/initiate.py` (`/payments/initiate/`)
 * [x] Wired payment URLs in `payments/urls.py` (`/payments/status/`, `/payments/webhook/`, `/payments/initiate/`, `/payments/mpesa/callback/`)
 * [x] Added small validators util: `payments/utils/validators.py`
-* [x] Added admin registration for `Payment` and `Profile`
+* [x] Added admin registration for `Payment`, `Profile`, and `PaymentAccessLog` (audit)
 * [x] Added management command to create a dev superuser: `users/management/commands/createsu.py`
 * [x] Added local accounts workflow: `accounts.example.json` template and `.gitignore` entry for `accounts.json`
 * [x] Created and applied migrations for `payments` and `users` (including safe data migration to make `Payment.user` non-nullable)
 * [x] Wrote unit tests for MPESA callback and STK initiation (tests pass locally): `payments/tests_mpesa.py`
-* [x] Ran full test suite locally — all tests pass
-* [x] Committed all new files and migrations in the local repository
+* [x] Implemented reconciliation & cleanup utilities (management commands and scripts) for failed/test payments
+* [x] Implemented `PaymentAccessLog` and server-side access auditing (logs who accessed payment details)
+* [x] Implemented unified payment modal (MPesa + Crypto) with live crypto prices, USD→KES conversion, QR generation and copy-to-clipboard
+* [x] Added market page improvements and server-side cached `/api/market-prices/` endpoint (caching default 5 minutes)
+* [x] Improved payment history UI and details page (filters, pagination, CSV/PDF export, details view styling)
+* [x] Added auth templates for login/register/password reset and styled them to match the theme
+* [x] Implemented secure POST-based logout using `LogoutView` and `LOGOUT_REDIRECT_URL`
+* [x] Integrated Celery + Redis wiring in dev instructions and added example `docker-compose.celery.yml`
+* [x] Added clear ngrok usage notes and `NGROK_HOST` handling in `settings_dev.py`
+* [x] Added `.env.example` and updated docs to use `cp .env.example .env` (do NOT commit `.env`)
 
-Notes
-- Some roadmap items remain (detailed logging, retry logic, webhook hardening, `.env` support, Celery integration, etc.). See the roadmap below for remaining priorities.
-- `payments/utils/mpesa_api.py` will attempt to use `requests` for real API calls; in environments without `requests` installed the module raises a clear RuntimeError — add `requests` to `requirements.txt` if you plan to call MPESA from this environment.
+Notes:
+- Most of the above work was implemented incrementally while testing locally with ngrok, Celery workers, and the MPESA sandbox.
+- Several safety features were added: token caching (process-local), safer request headers to avoid sandbox WAF blocks, and graceful fallbacks for forex/price APIs.
 
----
 
-# 🟦 Phase 1 — Foundation (Highest Priority)
+# Project Roadmap (Prioritized)
 
-## **1. Project Structure & Cleanup**
+This is the current roadmap with checkboxes reflecting completed and remaining tasks.
 
-* [x] Create modular apps: `core/`, `payments/`, `users/`
-* [x] Split settings into:
+## Phase 1 — Foundation
 
-  * `base.py`
-  * `dev.py`
-  * `prod.py`
-* [ ] Remove unused scripts and files
-* [ ] Delete commented-out code
-* [ ] Add `.env` & `.env.example`
-* [ ] Move secrets (keys/passwords) into `.env`
+* [x] Create modular apps and split settings
+* [x] Add `.env.example` and `.gitignore` rules (do **not** commit `.env`)
+* [x] Move secrets to `.env` (documented; ensure local `.env` is created via `.env.example`)
+* [ ] Remove unused scripts & files (cleanup ongoing)
+* [ ] Delete commented-out code (cleanup ongoing)
 
-**Notes:**
-Admin registration for models added.
-Optional helper command exists: `python manage.py createsu`.
+## Phase 2 — Core Backend & MPESA Integration
 
----
+* [x] MPESA STK initiation & callback endpoints
+* [x] Token caching (in-memory process-local) and safer HTTP headers to mitigate sandbox WAF blocks
+* [x] Basic retries and tenacity use for transient HTTP errors (tunable)
+* [ ] Move token cache to shared cache (Django cache/Redis) — recommended for multi-worker setups
+* [ ] Add stricter response schema validation for MPESA responses
+* [ ] Add structured logging (JSON logs) for token, STK payloads, and callback events
+* [ ] Notifications (email/SMS/push) after payment confirmation (integration required)
 
-# 🟩 Phase 2 — Core Backend & MPESA Integration
+## Phase 3 — Backend API & Auth (updates)
 
-## **2. MPESA STK Push Improvements**
+We implemented several improvements to secure APIs, provide a consistent JSON error format for API clients, and protect critical endpoints from abuse.
 
-* [x] Add detailed logging for token + STK steps  # TODO: add structured logging
-* [x] Implement retry logic                         # TODO: add retry/backoff for transient errors
-* [ ] Validate API responses                        # TODO: add strict response schema validation
+What we implemented:
 
-### Webhook
+* [x] Standard JSON error responses for API requests via `core.middleware.json_exception_middleware.JsonExceptionMiddleware`.
+  - Behavior: If the request path starts with `/api/` or the client sends `Accept: application/json`, unhandled exceptions return a structured JSON payload:
 
-* [x] Create `/mpesa/callback/` endpoint            # Implemented: `payments/views/callback.py`
-* [x] Validate callback body                        # Implemented: basic JSON parsing and presence checks; returns 400 on invalid JSON
-* [x] Update payment status in DB                   # Implemented: updates `Payment.status`, `mpesa_receipt_number`, `error_*` fields
-* [ ] Notify user                                   # TODO: integrate notifications (email/SMS/push)
-
-### Testing Mode
-
-* [x] Mock MPESA responses                         # Implemented in tests using `unittest.mock.patch`
-* [x] Tests for:
-
-  * [ ] Token generation                            # Not implemented yet
-  * [x] STK requests                                # Implemented: `payments/tests_mpesa.py` mocks `initiate_stk_push`
-  * [x] Callback processing                         # Implemented: `payments/tests_mpesa.py` includes success & failure callback tests
-
----
-
-# 🟧 Phase 3 — Backend API & Auth
-
-## **3. Backend Enhancements**
-
-* [ ] Standard JSON response structure
-* [ ] Global error handler middleware
-* [ ] JWT or session-based authentication
-* [ ] Add rate limiting
-* [x] Integrate Celery + Redis
-* [x] Add periodic tasks + retries
-
----
-
-# 🟨 Phase 4 — Database Optimization
-
-* [ ] Add DB indexes
-* [ ] Transaction ID unique constraint
-* [ ] Add audit tables
-* [ ] Add logs table
-
----
-
-# 🟪 Phase 5 — Frontend Improvements
-
-* [ ] Define UI theme (colors, fonts)
-* [ ] Create reusable UI components
-* [ ] Improve forms (validation, loading states)
-* [ ] Build user dashboard:
-
-  * Payment history
-  * Download receipts
-  * Profile settings
-
----
-
-# 🟫 Phase 6 — Git & Workflow
-
-* [ ] Expand `.gitignore`
-* [ ] Clean large/unnecessary files
-* [ ] Add `dev` branch
-* [ ] Use feature branches
-* [ ] Merge using PRs
-
----
-
-# 🟦 Phase 7 — Deployment
-
-* [ ] Dockerfile
-* [ ] docker-compose (web + db + redis + celery)
-* [ ] Nginx reverse proxy
-* [ ] Gunicorn
-* [ ] HTTPS/SSL
-* [ ] Logging + uptime monitoring
-
----
-
-# 🟩 Phase 8 — Documentation
-
-* [ ] Improve setup instructions
-* [ ] Add environment configuration guide
-* [ ] Write API docs (Swagger / Postman)
-* [ ] Add MPESA flow diagram
-
----
-
-# 🟧 Phase 9 — Testing Suite
-
-* [ ] Unit tests (users, payments, tasks)
-* [ ] Integration tests (STK → callback → DB)
-* [ ] Manual test checklist
-
----
-
-# 🔐 Local Accounts File (DO NOT COMMIT)
-
-Use:
-
-* `accounts.example.json` → safe template
-* `accounts.json` → your private local secrets (ignored by git)
-
-Example usage:
-
-```bash
-cp accounts.example.json accounts.json
+```json
+{ "status": "error", "message": "internal server error", "detail": "...exception text..." }
 ```
 
-Python loader:
+* [x] Rate-limiter decorator `core.utils.permissions.rate_limit` used on the MPESA initiation endpoint to limit by IP address (default: 4 requests / 60s). Example usage:
 
 ```python
-from core.utils.accounts import load_accounts
-accounts = load_accounts()
+from core.utils.permissions import rate_limit
+
+@rate_limit('mpesa_initiate', limit=4, period=60)
+def initiate_payment(request):
+    ...
 ```
 
----
+* [x] Owner / admin access decorator `core.utils.permissions.admin_or_owner_required` (and existing `payments.decorators.audit_and_require_payment_view`) to restrict payment detail access to staff or the payment owner and automatically log access to `PaymentAccessLog`.
 
-# Running with Celery (optional)
+Notes & how to configure:
 
-A minimal docker-compose example to run the Django app with a Redis broker and a Celery worker is provided in `docker-compose.celery.yml`.
+* The rate limiter uses Django's cache backend. For local dev this defaults to the in-memory local cache, but for multi-process setups you should configure a shared cache (Redis) in `core/settings_dev.py`:
 
-Quick start (requires Docker):
-
-```bash
-docker-compose -f docker-compose.celery.yml up --build
+```python
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+    }
+}
 ```
 
-This brings up Redis, the web app (Gunicorn), and a `worker` service running Celery.
+* If no cache is available, the rate limiter gracefully logs a warning and allows requests (to avoid accidental outages during dev). In production, configure Redis and increase key TTLs as appropriate.
 
-Locally without Docker, to run a worker:
-
-```bash
-# ensure you have redis running locally
-export CELERY_BROKER_URL=redis://localhost:6379/0
-export CELERY_RESULT_BACKEND=$CELERY_BROKER_URL
-# start worker (use the Celery app module that exports `app`)
-celery -A core.celery worker -l info
-```
-
-Common mistake: specifying the wrong module in `-A` causes "Unable to load celery application" (for example `-A crypto_sales_page` will fail if no module named `crypto_sales_page` exposes a Celery instance). If you see that error, point `-A` at `core.celery` (the project Celery app) or the module where your Celery `app` lives.
-
----
-
-## Required .env variables (local development)
-
-This project expects a `.env` file at the project root for local development. These variables are required for MPESA integration and running the site locally. Do NOT commit `.env` into source control — it's already added to `.gitignore`.
-
-Provide values in your local `.env`. Example (use real values only locally):
-
-```
-# Django
-SECRET_KEY=your-secret-key
-DEBUG=True
-ALLOWED_HOSTS=127.0.0.1,localhost
-CSRF_TRUSTED_ORIGINS=https://example.ngrok-free.dev
-
-# DB (default: SQLite)
-DATABASE_URL=sqlite:///db.sqlite3
-
-# MPESA Sandbox (placeholders) - these values are required for MPESA calls
-MPESA_CONSUMER_KEY=YOUR_MPESA_CONSUMER_KEY
-MPESA_CONSUMER_SECRET=YOUR_MPESA_CONSUMER_SECRET
-MPESA_SHORTCODE=174379
-MPESA_PASSKEY=YOUR_MPESA_PASSKEY
-MPESA_CALLBACK_URL=https://your-ngrok-domain/payments/callback/
-MPESA_ENV=sandbox
-
-# Redis / Celery (optional)
-REDIS_URL=redis://127.0.0.1:6379/0
-```
-
-If you need to share a template, create `.env.example` with placeholder values and commit that instead of `.env`.
-
----
-
-## 🔒 Sensitive data access & visibility
-
-Payment records contain sensitive personal and financial information (phone numbers, MPESA receipts, callback payloads). Treat access to full payment details as restricted and follow the principle of least privilege.
-
-Who should be allowed to view full payment details
-
-- System administrators (on-duty ops) for debugging and incident response
-- Support engineers with approved access for customer support cases (must be time-limited and logged)
-- Auditors and compliance officers under a formal request process
-
-Who should NOT have access
-
-- General developers on non-production environments without explicit need
-- Unauthenticated users or normal application users (they should only see their own records)
-- Third-party contractors without an approved NDA or limited-scope access
-
-Recommended controls and procedures
-
-1. Role-based access control (RBAC)
-   - Enforce RBAC on views that return full `callback_raw_data` or `error_message`.
-   - Prefer server-side checks (decorators or middleware) instead of hiding data in templates.
-
-2. Logging and auditing
-   - Log every access to sensitive payment data (who, when, and why).
-   - Store audit logs in an append-only system if possible.
-
-3. Redaction by default
-   - In list views or public dashboards, show only minimal fields (amount, date, truncated receipt). Full payloads should be shown only in the detail view to authorized users.
-
-4. Access requests & approvals
-   - Require a short justification and approval from a team lead for access to specific production payment records.
-
-5. Data retention & deletion
-   - Keep failed test payments separated from production payments.
-   - Provide a safe clean-up workflow (see `cleanup_failed_payments` management command) and a retention policy for callback payloads.
-
-6. Encrypt backups and restrict DB access
-   - Ensure DB backups are encrypted and restrict access to backups to a small set of operators.
+* The JSON error middleware is lightweight — it only returns JSON for API requests (path starts with `/api/` or `Accept: application/json`). For normal HTML pages you will still get Django's debug/404 pages.
 
 
----
+## Phase 4 — Database & Auditing
 
-# New: Access Auditing & Authorization (Implemented)
+* [x] `PaymentAccessLog` implemented and registered in admin (read-only)
+* [ ] Additional DB indexes and constraints (TBD)
+* [ ] Audit exports & retention policy
 
-To improve operational security and make it safe to inspect payment details, the repository now includes the following server-side features (implemented):
+## Phase 5 — Frontend Improvements
 
-- `payments.models.PaymentAccessLog` (new model)
-  - Records every access attempt to a `Payment` detail view (who, when, IP, user-agent, action)
-  - Registered in the admin as `PaymentAccessLog` for review
+* [x] Unified theme scaffolding and scoped landing styles
+* [x] Reusable components (cards, forms, buttons) — basic implementations
+* [x] Unified combined payment modal with live data
+* [x] Payment history UI (search/filter/sort/pagination) and detailed view
+* [ ] Further UI polish (icons, hero visuals, mobile-first tweaks)
+* [ ] Full dashboard: portfolio, receipts, analytics
 
-- Authorization rules for `payment_detail`
-  - Payment owners (the user who created the payment) can view their own records
-  - Staff/superusers can view any record
-  - Users with the `payments.view_payment` model permission can view records
-  - Unauthorized attempts are recorded in `PaymentAccessLog` and return HTTP 403
+## Phase 6 — Git & Workflow
 
-- Admin UI
-  - `PaymentAccessLog` is registered in `payments/admin.py` (read-only fields) so ops can review access events
+* [x] Added `.gitignore` recommendations and branch guidance in README
+* [ ] Adopt strict feature-branch workflow & PR checks (CI) — to do
 
+## Phase 7 — Deployment
 
-## Migration & setup steps (required)
+* [ ] Dockerfile and production compose
+* [ ] Nginx + Gunicorn configuration
+* [ ] HTTPS, monitoring, and logging stacks
 
-After pulling these code changes you must create and apply migrations to add the `PaymentAccessLog` table:
+## Phase 8 — Documentation
 
-```bash
-# from project root
-source crypto/bin/activate     # or your venv
-python manage.py makemigrations payments
-python manage.py migrate
-```
+* [x] Updated README with setup notes, ngrok guidance, and reconciliation docs
+* [ ] API docs / Swagger
+* [ ] MPESA flow diagrams & architecture docs
 
-If you use migrations via a CI pipeline, include the generated migration in your PR. The new migration will create the `payments_paymentaccesslog` table.
+## Phase 9 — Testing Suite
 
-
-## How to grant support access
-
-To allow a user to view other users' payment details, either:
-
-1. Make them staff or superuser (quick, but broad):
-
-```bash
-python manage.py shell
-from django.contrib.auth import get_user_model
-User = get_user_model()
-u = User.objects.get(username='alice')
-u.is_staff = True
-u.save()
-```
-
-2. Grant the model-level view permission (fine-grained):
-
-```bash
-python manage.py shell
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.auth import get_user_model
-from payments.models import Payment
-
-ct = ContentType.objects.get_for_model(Payment)
-perm = Permission.objects.get(content_type=ct, codename='view_payment')
-user = get_user_model().objects.get(username='bob')
-user.user_permissions.add(perm)
-```
-
-This grants only the `view_payment` right which the code checks for access.
+* [x] Unit tests for MPESA flows (callback & STK) — local tests pass
+* [ ] Integration tests (end-to-end STK → callback → DB under Celery)
+* [ ] Add tests for token caching and retry/backoff
 
 
-## Operational notes
+# What to do next (recommended immediate tasks)
 
-- Audit logs are intentionally stored in the regular DB for now. For production, consider shipping them to a centralized audit/append-only store (WORM or ELK/S3 with restricted ACLs) and add an export-only admin view.
-
-- The audit logger is defensive: logging failures do not interrupt the user request.
-
-- If you need a stricter policy (e.g., support staff must request approval before viewing a record), we can add a simple `approval_required` flag and gate the view until approved.
-
-
----
+1. Move token caching to Django cache/Redis so multiple Celery workers/processes share the same token (high priority for production). — [ ]
+2. Add stricter MPESA response schema validation and unit tests for token generation and STK responses. — [ ]
+3. Implement structured JSON logging or integrate `structlog` for machine-parsable logs. — [ ]
+4. Add notifications (payment_confirmed) via Celery tasks and document required env vars (e.g., TWILIO credentials) in `.env.example`. — [ ]
+5. Polish frontend: mobile-first tweaks, hero visuals, and finalize component library (cards/forms/buttons). — [ ]
