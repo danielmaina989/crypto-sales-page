@@ -21,7 +21,6 @@
       <button id="nav-buy-now" class="btn-primary" title="Buy crypto now" aria-label="Buy crypto now">Buy crypto now</button>
 
       {% if user.is_authenticated %}
-        <a href="{% url 'payments:history' %}" class="btn-secondary" title="View your payment history" aria-label="Payment history">My Payments</a>
         <a href="{% url 'dashboard' %}" class="btn-secondary" title="Open your dashboard" aria-label="Dashboard">Dashboard</a>
 
         <form method="post" action="{% url 'logout' %}" style="display:inline; margin:0;">
