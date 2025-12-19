@@ -111,11 +111,11 @@ If you want, I can now:
 
 - [x] Floating chat widget
 - [x] Message bubbles (user / bot)
-- [ ] Typing indicator
-- [ ] Loading spinner
+- [x] Typing indicator
+- [x] Loading spinner
 - [x] Error fallback message
 - [x] Mobile-friendly layout
-- [ ] Persist session (localStorage)
+- [x] Persist session (localStorage)
 
 ---
 
@@ -123,7 +123,7 @@ If you want, I can now:
 
 **Goal:** Production-grade behavior
 
-- [ ] Rate limiting (per IP/session)
+- [x] Rate limiting (per IP/session)
 - [ ] Input sanitization
 - [x] Log raw message (messages persisted to DB via `ChatMessage`)
 - [ ] Log detected intent

@@ -1,12 +1,14 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'chatbot/chat.css' %}">
-<div id="chatbot-widget" class="chatbot-widget">
+<div id="chatbot-widget" class="chatbot-widget" aria-live="polite">
   <div class="chatbot-header">Help</div>
-  <div class="chatbot-messages" id="chatbot-messages"></div>
+  <div class="chatbot-messages" id="chatbot-messages" role="log" aria-atomic="false"></div>
+  <div class="chatbot-typing hidden" id="chatbot-typing" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
   <div class="chatbot-input">
-    <input id="chatbot-input-field" placeholder="Ask about payments, MPESA, or wallets" />
+    <input id="chatbot-input-field" placeholder="Ask about payments, MPESA, or wallets" aria-label="Chat input" />
     <button id="chatbot-send">Send</button>
   </div>
 </div>
 <script src="{% static 'chatbot/chat.js' %}"></script>
-
