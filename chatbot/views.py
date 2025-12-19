@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.conf import settings
 from .models import ChatSession, ChatMessage
 from .rules import detect_intent, handle_message
 from .handlers import handle_intent, handle_payment_lookup, handle_generic_status
@@ -16,17 +17,40 @@ from .services import (
 
 PHONE_RE = re.compile(r"(07\d{8}|2547\d{8})")
 
+# Enforce chatbot auth mode via settings
+CHATBOT_ALLOW_ANONYMOUS = getattr(settings, "CHATBOT_ALLOW_ANONYMOUS", True)
+
 
 @csrf_exempt
 def chat_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    text = request.POST.get('message', '')
-    session_id = request.session.get('chat_id')
+    # allow legacy form POSTs (widget) and JSON POSTs (api)
+    text = request.POST.get('message', '') or ''
+
+    # accept an optional client-provided session_id (persisted in localStorage)
+    client_session = request.POST.get('session_id') or None
+
+    if not text:
+        # try JSON body
+        try:
+            payload = json.loads(request.body.decode())
+            text = payload.get('message', '')
+            if not client_session:
+                client_session = payload.get('session_id')
+        except Exception:
+            text = ''
+
+    # auth mode enforcement
+    if not CHATBOT_ALLOW_ANONYMOUS and (not getattr(request, 'user', None) or request.user.is_anonymous):
+        return JsonResponse({'error': 'authentication_required'}, status=401)
+
+    # If client provided a session id, prefer and persist it in server session
+    session_id = client_session or request.session.get('chat_id')
     if not session_id:
         session_id = uuid.uuid4().hex
-        request.session['chat_id'] = session_id
+    request.session['chat_id'] = session_id
 
     session, _ = ChatSession.objects.get_or_create(
         session_id=session_id,
@@ -47,7 +71,7 @@ def chat_api(request):
         message=reply
     )
 
-    return JsonResponse({'reply': reply})
+    return JsonResponse({'reply': reply, 'session_id': session_id})
 
 
 def widget(request):
@@ -58,6 +82,10 @@ def widget(request):
 @csrf_exempt
 @require_POST
 def chat_message(request):
+    # AUTH enforcement
+    if not CHATBOT_ALLOW_ANONYMOUS and (not getattr(request, 'user', None) or request.user.is_anonymous):
+        return JsonResponse({'error': 'authentication_required'}, status=401)
+
     try:
         payload = json.loads(request.body.decode())
     except Exception:
@@ -69,6 +97,12 @@ def chat_message(request):
 
     intent_data = detect_intent(message)
     intent = intent_data.get('intent')
+
+    # fallback to AI only when rules return unknown
+    if not intent or intent == 'unknown':
+        from .ai import ai_detect_intent
+        intent_data = ai_detect_intent(message)
+        intent = intent_data.get('intent')
 
     if intent == 'payment_lookup':
         response = handle_payment_lookup(intent_data.get('entities', {}))

@@ -77,20 +77,18 @@ If you want, I can now:
 
 ---
 
-## 🤖 Phase 2 — AI Fallback (NLU ONLY)
+## 🤖 Phase 2 — AI FALLBACK (NLU ONLY)
 
 **Goal:** Understand language, not execute logic
 
 - [x] Create `chatbot/ai.py` (stub)
-- [ ] Add strict system prompt:
-  - [ ] JSON only
-  - [ ] Allowed intents only
-  - [ ] No answers, no DB, no payments
-- [ ] Extract:
-  - [ ] intent
-  - [ ] phone / reference (if any)
-- [x] Fallback to `unknown` intent safely (stub returns unknown)
-- [ ] Add timeout + error handling
+- [x] Add strict system prompt: JSON only, allowed intents enforced.
+- [x] Extract intent and phone / reference (if any)
+- [x] Fallback to `unknown` intent safely (on errors / invalid responses)
+- [x] Add timeout + error handling for LLM calls
+- [x] Minimal auth-mode check in `chatbot/views.py` (respect `CHATBOT_ALLOW_ANONYMOUS`)
+- [ ] Decide auth mode: Anonymous allowed (recommended)
+  - `CHATBOT_ALLOW_ANONYMOUS` defaults to `True`. Project-level decision still required.
 
 ---
 
