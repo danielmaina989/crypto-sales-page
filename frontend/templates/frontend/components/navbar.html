@@ -1,7 +1,7 @@
 {% load static %}
 <nav class="site-nav" role="navigation" aria-label="Main navigation">
   <div class="site-nav__inner container">
-    <a class="site-nav__brand" href="{% url 'market' %}" title="View market">
+    <a class="site-nav__brand" href="{% url 'frontend:market' %}" title="View market">
       <img src="{% static 'frontend/images/logo.png' %}" alt="Logo" class="site-nav__logo logo-light">
       <!-- Optional dark-mode logo: put a dark variant at frontend/images/logo-dark.png to show in dark theme -->
       <img src="{% static 'frontend/images/logo-dark.png' %}" alt="Logo" class="site-nav__logo logo-dark" style="display:none">
@@ -14,10 +14,10 @@
     </button>
 
     <ul id="site-nav-links" class="site-nav__links">
-      <li><a href="{% url 'market' %}" title="Explore market">Market</a></li>
-      <li><a href="{% url 'features' %}" title="See features">Features</a></li>
-      <li><a href="{% url 'whitepapers' %}" title="Read whitepapers">Whitepapers</a></li>
-      <li><a href="{% url 'about' %}" title="About us">About Us</a></li>
+      <li><a href="{% url 'frontend:market' %}" title="Explore market">Market</a></li>
+      <li><a href="{% url 'frontend:features' %}" title="See features">Features</a></li>
+      <li><a href="{% url 'frontend:whitepapers' %}" title="Read whitepapers">Whitepapers</a></li>
+      <li><a href="{% url 'frontend:about' %}" title="About us">About Us</a></li>
     </ul>
 
     <div class="site-nav__actions">
@@ -25,7 +25,7 @@
       <button id="nav-buy-now" class="btn-primary" title="Buy crypto now" aria-label="Buy crypto now">Buy crypto now</button>
 
       {% if user.is_authenticated %}
-        <a href="{% url 'dashboard' %}" class="btn-secondary" title="Open your dashboard" aria-label="Dashboard">Dashboard</a>
+        <a href="{% url 'frontend:dashboard' %}" class="btn-secondary" title="Open your dashboard" aria-label="Dashboard">Dashboard</a>
 
         <form method="post" action="{% url 'logout' %}" style="display:inline; margin:0;">
           {% csrf_token %}
@@ -70,7 +70,7 @@
           return;
         }
         // fallback: redirect to market page
-        window.location.href = '{% url "market" %}';
+        window.location.href = '{% url "frontend:market" %}';
       });
     }
 

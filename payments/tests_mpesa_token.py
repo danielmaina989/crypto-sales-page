@@ -8,6 +8,9 @@ class MPESATokenTests(TestCase):
         # ensure module-level requests exists as attribute for patching in environments where requests isn't installed
         if not hasattr(mpesa_api, 'requests'):
             mpesa_api.requests = None
+        # clear the in-memory token cache before each test to avoid contamination
+        mpesa_api._token_cache['token'] = None
+        mpesa_api._token_cache['expiry'] = 0.0
 
     def test_get_access_token_success(self):
         with patch('payments.utils.mpesa_api.requests', new=Mock()) as mock_requests:

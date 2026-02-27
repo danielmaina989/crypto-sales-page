@@ -100,13 +100,28 @@
   <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
       <h1>Market</h1>
-      <a href="{% url 'home' %}" class="btn-primary">Back to home</a>
+      <a href="{% url 'frontend:home' %}" class="btn-primary">Back to home</a>
     </div>
   </div>
 </div>
 
 <div class="container">
   <div id="spinner" class="spinner" style="display:none"></div>
+  
+  <!-- Brokerage CTA Section -->
+  <div style="background: linear-gradient(135deg, #4f46e5 0%, #6b46c1 100%); border-radius: 12px; padding: 40px 20px; margin: 30px 0; text-align: center; color: white;">
+    <h2 style="font-size: 1.8rem; margin-bottom: 10px;">Let Us Broker for You</h2>
+    <p style="font-size: 1.1rem; margin-bottom: 25px; opacity: 0.95;">Trade your crypto with MPESA - Fast, Safe, and Transparent</p>
+    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+      <a href="{% url 'frontend:buy' %}" class="btn btn-primary" style="background: white; color: #4f46e5; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
+        💰 Buy Crypto
+      </a>
+      <a href="{% url 'frontend:sell' %}" class="btn btn-secondary" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
+        💸 Sell Crypto
+      </a>
+    </div>
+  </div>
+  
   <div id="market-grid" class="market-grid mt-4"></div>
   <div class="last-updated" id="last-updated"></div>
 

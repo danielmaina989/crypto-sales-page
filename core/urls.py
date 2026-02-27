@@ -25,8 +25,10 @@ urlpatterns = [
     # Top-level logout endpoint: use LogoutView which will redirect to LOGOUT_REDIRECT_URL
     path('logout/', LogoutView.as_view(), name='logout'),
 
-    path('', include('frontend.urls')),
+    # include frontend URLs with a namespace so that reverse('frontend:...') works
+    path('', include(('frontend.urls', 'frontend'), namespace='frontend')),
     path('payments/', include('payments.urls')),
+    path('api/', include('trades.urls')),
 
     # Replace default login with IntelligentLoginView at /accounts/login/
     path('accounts/login/', users_views.IntelligentLoginView.as_view(), name='login'),
