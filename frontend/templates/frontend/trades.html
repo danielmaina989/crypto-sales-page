@@ -1,0 +1,210 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Trade History - Crypto Trading Platform{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'frontend/trading.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="trades-container">
+    <div class="trades-wrapper">
+        <!-- Header -->
+        <div class="trades-header">
+            <div class="trades-title-section">
+                <h1 class="trades-title">📈 Trade History</h1>
+                <p class="trades-subtitle">View your crypto trading activity</p>
+            </div>
+            <div class="trades-actions">
+                <a href="{% url 'frontend:buy' %}" class="btn btn-primary btn-sm">
+                    <span>+ Buy Crypto</span>
+                </a>
+                <a href="{% url 'frontend:sell' %}" class="btn btn-secondary btn-sm">
+                    <span>+ Sell Crypto</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Traded</div>
+                    <div class="stat-value">{{ total_kes_traded|floatformat:2 }} KES</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Trades</div>
+                    <div class="stat-value">{{ total_trades }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-value">{{ completed_trades }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value">{{ pending_trades }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🛒</div>
+                <div class="stat-content">
+                    <div class="stat-label">Buy Orders</div>
+                    <div class="stat-value">{{ buy_count }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💸</div>
+                <div class="stat-content">
+                    <div class="stat-label">Sell Orders</div>
+                    <div class="stat-value">{{ sell_count }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters & Search -->
+        <div class="trades-controls">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="searchTrades" 
+                    placeholder="Search by coin, amount, or status..."
+                    class="search-input"
+                >
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="buy">Buys</button>
+                <button class="filter-btn" data-filter="sell">Sells</button>
+                <button class="filter-btn" data-filter="completed">Completed</button>
+                <button class="filter-btn" data-filter="pending">Pending</button>
+            </div>
+        </div>
+
+        <!-- Trades Table -->
+        <div class="trades-table-wrapper">
+            {% if trades %}
+            <table class="trades-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Coin</th>
+                        <th>Amount</th>
+                        <th>KES Value</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in trades %}
+                    <tr class="trade-row" data-trade-id="{{ trade.id }}" data-type="{{ trade.trade_type }}" data-status="{{ trade.status }}">
+                        <td class="cell-date">
+                            <div class="date-badge">
+                                <span class="date">{{ trade.created_at|date:'M d' }}</span>
+                                <span class="time">{{ trade.created_at|time:'H:i' }}</span>
+                            </div>
+                        </td>
+                        <td class="cell-type">
+                            <span class="type-badge {% if trade.trade_type == 'buy' %}type-buy{% else %}type-sell{% endif %}">
+                                {% if trade.trade_type == 'buy' %}🛒 Buy{% else %}💸 Sell{% endif %}
+                            </span>
+                        </td>
+                        <td class="cell-coin">
+                            <span class="coin-label">{{ trade.coin }}</span>
+                        </td>
+                        <td class="cell-crypto-amount">
+                            {{ trade.amount_crypto|floatformat:8 }} {{ trade.coin }}
+                        </td>
+                        <td class="cell-kes-amount">
+                            <strong>{{ trade.amount_kes|floatformat:2 }} KES</strong>
+                        </td>
+                        <td class="cell-status">
+                            <span class="status-badge status-{{ trade.status }}">
+                                {{ trade.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="cell-action">
+                            <a href="#" class="btn-details" onclick="showTradeDetails({{ trade.id }})">
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h3>No trades yet</h3>
+                <p>You haven't made any trades yet. Start by buying or selling crypto.</p>
+                <div class="empty-actions">
+                    <a href="{% url 'frontend:buy' %}" class="btn btn-primary">Buy Crypto</a>
+                    <a href="{% url 'frontend:sell' %}" class="btn btn-secondary">Sell Crypto</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Trade Details Modal -->
+<div id="tradeDetailsModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-close" onclick="closeModal('tradeDetailsModal')">&times;</div>
+        <div class="modal-header">
+            <h2>Trade Details</h2>
+        </div>
+        <div class="modal-body" id="tradeDetailsContent">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- Refresh Data -->
+<script id="tradesData" type="application/json">
+{
+    "trades": [
+        {% for trade in trades %}
+        {
+            "id": {{ trade.id }},
+            "type": "{{ trade.trade_type }}",
+            "type_display": "{{ trade.get_trade_type_display }}",
+            "coin": "{{ trade.coin }}",
+            "amount_crypto": {{ trade.amount_crypto }},
+            "amount_kes": {{ trade.amount_kes }},
+            "status": "{{ trade.status }}",
+            "status_display": "{{ trade.get_status_display }}",
+            "wallet_address": "{{ trade.wallet_address|default:'' }}",
+            "deposit_address": "{{ trade.deposit_address|default:'' }}",
+            "tx_hash": "{{ trade.tx_hash|default:'' }}",
+            "confirmation_count": {{ trade.blockchain_confirmation_count }},
+            "mpesa_confirmation": "{{ trade.mpesa_confirmation|default:'' }}",
+            "created_at": "{{ trade.created_at|date:'Y-m-d H:i:s' }}",
+            "completed_at": "{{ trade.completed_at|date:'Y-m-d H:i:s'|default:'' }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'frontend/trades-dashboard.js' %}"></script>
+<script>
+// Initialize trades page
+document.addEventListener('DOMContentLoaded', function() {
+    initTradesDashboard();
+});
+</script>
+{% endblock %}

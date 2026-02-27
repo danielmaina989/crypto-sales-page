@@ -1,0 +1,306 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Sell Crypto - Crypto Trading Platform{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'frontend/trading.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="trading-container">
+    <div class="trading-wrapper">
+        <!-- Header -->
+        <div class="trading-header">
+            <h1 class="trading-title">💸 Sell Crypto</h1>
+            <p class="trading-subtitle">Convert your crypto to MPESA instantly</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="trading-content">
+            <!-- Left: Form -->
+            <div class="trading-form-wrapper">
+                <form id="sellForm" class="trading-form">
+                    {% csrf_token %}
+
+                    <!-- Step 1: Select Coin -->
+                    <div class="form-section">
+                        <label for="coin" class="form-label">
+                            <span class="label-text">Select Cryptocurrency</span>
+                            <span class="label-tip">Which coin do you want to sell?</span>
+                        </label>
+                        <select id="coin" name="coin" class="form-control" required>
+                            <option value="">-- Choose a coin --</option>
+                            {% for rate in rates %}
+                                {% if rate.coin in owned_cryptos %}
+                                <option value="{{ rate.coin }}" data-rate-id="{{ rate.id }}">
+                                    {{ rate.coin }} (Sell @ {{ rate.sell_rate_kes|floatformat:0 }} KES each)
+                                </option>
+                                {% endif %}
+                            {% empty %}
+                            <option value="" disabled>No coins available to sell</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-error" id="coinError"></div>
+                        {% if not owned_cryptos %}
+                        <div class="form-hint" style="color: #f97316; margin-top: 8px;">
+                            💡 You need to buy crypto first before you can sell. <a href="{% url 'frontend:buy' %}" style="color: #4f46e5; text-decoration: underline;">Buy now</a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 2: Enter Crypto Amount -->
+                    <div class="form-section">
+                        <label for="amountCrypto" class="form-label">
+                            <span class="label-text">Amount to Sell</span>
+                            <span class="label-tip" id="amountTip">How much crypto are you selling?</span>
+                        </label>
+                        <div class="input-with-suffix">
+                            <input 
+                                type="number" 
+                                id="amountCrypto" 
+                                name="amount_crypto" 
+                                class="form-control" 
+                                placeholder="0.001"
+                                step="0.00000001"
+                                min="0"
+                                required
+                            >
+                            <span class="input-suffix" id="cryptoUnit">BTC</span>
+                        </div>
+                        <div class="form-error" id="amountError"></div>
+                    </div>
+
+                    <!-- Calculated KES Display -->
+                    <div class="amount-calculator" id="amountCalculator" style="display: none;">
+                        <div class="calc-row">
+                            <span class="calc-label">You'll receive:</span>
+                            <span class="calc-value" id="kesAmount">0.00</span>
+                            <span class="calc-unit">KES</span>
+                        </div>
+                        <div class="calc-row">
+                            <span class="calc-label">Rate:</span>
+                            <span class="calc-value" id="rateDisplay">0.00</span>
+                            <span class="calc-unit">KES</span>
+                        </div>
+                        <div class="calc-divider"></div>
+                        <div class="calc-row info">
+                            <span class="calc-label">Spread:</span>
+                            <span class="calc-value" id="spreadDisplay">-3.0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Phone Number -->
+                    <div class="form-section">
+                        <label for="phoneNumber" class="form-label">
+                            <span class="label-text">MPESA Phone Number</span>
+                            <span class="label-tip">Where should we send your money?</span>
+                        </label>
+                        <div class="input-with-prefix">
+                            <span class="input-prefix">🇰🇪</span>
+                            <input 
+                                type="tel" 
+                                id="phoneNumber" 
+                                name="phone_number" 
+                                class="form-control" 
+                                placeholder="712345678 or 0712345678"
+                                required
+                            >
+                        </div>
+                        <div class="form-error" id="phoneError"></div>
+                        <div class="form-hint">Kenyan MPESA number where you'll receive money</div>
+                    </div>
+
+                    <!-- Deposit Instructions -->
+                    <div class="deposit-instructions" id="depositInstructions" style="display: none;">
+                        <div class="instruction-header">
+                            <span>📡 Deposit Instructions</span>
+                        </div>
+                        <div class="instruction-content">
+                            <p>After submitting, we'll give you a deposit address. Send exactly <strong id="exactAmount">0.001</strong> <strong id="exactCoin">BTC</strong> to that address.</p>
+                            <div class="instruction-warning">
+                                ⚠️ Send exactly the amount shown, to the exact address given. Incorrect amounts may be lost.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terms -->
+                    <div class="form-section checkbox-section">
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="agreeTerms" name="agree_terms" required>
+                            <span class="checkbox-label">
+                                I understand the risks and agree to the 
+                                <a href="#" onclick="showTermsModal(event)" class="link">Terms of Service</a>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary btn-lg btn-block" id="submitBtn">
+                        <span id="btnText">Get Deposit Address</span>
+                        <span id="btnLoader" class="spinner" style="display: none;"></span>
+                    </button>
+
+                    <p class="form-note">
+                        💡 After submitting, we'll show you the deposit address and confirm when we receive your crypto.
+                    </p>
+                </form>
+            </div>
+
+            <!-- Right: Info Panel -->
+            <div class="trading-info-wrapper">
+                <!-- Rates Card -->
+                <div class="info-card">
+                    <div class="info-card-title">📊 Current Rates</div>
+                    <div id="ratesPanel" class="rates-panel">
+                        {% for rate in rates %}
+                        <div class="rate-item" data-coin="{{ rate.coin }}">
+                            <div class="rate-header">
+                                <span class="rate-coin">{{ rate.coin }}</span>
+                                <span class="rate-badge">-{{ rate.sell_spread|floatformat:1 }}%</span>
+                            </div>
+                            <div class="rate-details">
+                                <div class="rate-row">
+                                    <span class="rate-label">Market:</span>
+                                    <span class="rate-value">{{ rate.market_rate_kes|floatformat:0 }} KES</span>
+                                </div>
+                                <div class="rate-row emphasis">
+                                    <span class="rate-label">Our price:</span>
+                                    <span class="rate-value">{{ rate.sell_rate_kes|floatformat:0 }} KES</span>
+                                </div>
+                                <div class="rate-row">
+                                    <span class="rate-label">Min:</span>
+                                    <span class="rate-value">{{ rate.min_transaction_kes|floatformat:0 }} KES</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty-state">No rates available yet</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- How It Works -->
+                <div class="info-card">
+                    <div class="info-card-title">⚡ How It Works</div>
+                    <div class="steps-list">
+                        <div class="step-item">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <div class="step-title">Select Coin & Amount</div>
+                                <p>Choose which crypto you're selling and how much</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <div class="step-title">Get Deposit Address</div>
+                                <p>We provide you with a safe deposit address</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <div class="step-title">Send Crypto</div>
+                                <p>Send exactly your amount to the address</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <div class="step-title">Receive MPESA</div>
+                                <p>Money arrives in your account once confirmed</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="info-card">
+                    <div class="info-card-title">❓ FAQ</div>
+                    <div class="faq-list">
+                        <div class="faq-item">
+                            <div class="faq-question">How do I know the address is safe?</div>
+                            <div class="faq-answer">We generate addresses for each transaction. Never share the address publicly.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">What if I send the wrong amount?</div>
+                            <div class="faq-answer">Send exactly the amount shown. Wrong amounts cannot be recovered.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">How long until my MPESA arrives?</div>
+                            <div class="faq-answer">Usually within 30 minutes of blockchain confirmation (3-6 blocks).</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">What are the fees?</div>
+                            <div class="faq-answer">No hidden fees. The spread (3%) is built into the rate you see.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-close" onclick="closeModal('successModal')">&times;</div>
+        <div class="modal-body">
+            <div class="success-icon">✅</div>
+            <h2>Deposit Address Generated!</h2>
+            
+            <div class="deposit-summary" id="depositSummary">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="address-display">
+                <div class="address-label">Send to this address:</div>
+                <div class="address-box">
+                    <code id="depositAddress"></code>
+                    <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">📋 Copy</button>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                ⚠️ <strong>Important:</strong>
+                <ul>
+                    <li>Send exactly the amount shown above</li>
+                    <li>Use this address only</li>
+                    <li>Do not modify the address</li>
+                    <li>Double-check before sending</li>
+                </ul>
+            </div>
+
+            <button class="btn btn-primary btn-block" onclick="window.location.href='/trades/'">
+                View My Trades
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div id="errorModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-close" onclick="closeModal('errorModal')">&times;</div>
+        <div class="modal-body text-center">
+            <div class="error-icon">❌</div>
+            <h2>Request Failed</h2>
+            <p id="errorMessage"></p>
+            <button class="btn btn-secondary" onclick="closeModal('errorModal')">
+                Try Again
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'frontend/trading.js' %}"></script>
+<script>
+// Initialize sell page
+document.addEventListener('DOMContentLoaded', function() {
+    initSellPage();
+});
+</script>
+{% endblock %}
