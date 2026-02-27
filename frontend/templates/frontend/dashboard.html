@@ -28,76 +28,207 @@
     <a href="{% url 'home' %}" class="btn-secondary">Back to home</a>
   </div>
 
+  <!-- PAYMENT SECTION -->
+  <div style="display:flex; gap:16px; margin-top:8px; align-items:center;">
+    <h2 style="flex:1;">💳 Payments</h2>
+  </div>
   <div class="dashboard-grid">
     <div class="summary-card">
       <h3>Total spent</h3>
-      <div style="font-size:20px; font-weight:700;">{{ total_spent|format_kes }}</div>
-      <div class="text-muted">Over {{ total_count }} transactions</div>
+      <div style="font-size:20px; font-weight:700;">{{ payment_total_spent|format_kes }}</div>
+      <div class="text-muted">{{ payment_total_count }} transactions</div>
     </div>
 
     <div class="summary-card">
       <h3>Average order</h3>
-      <div style="font-size:20px; font-weight:700;">{{ avg_amount|floatformat:2|format_kes }}</div>
+      <div style="font-size:20px; font-weight:700;">{{ payment_avg_amount|floatformat:2|format_kes }}</div>
       <div class="text-muted">Per transaction</div>
     </div>
 
     <div class="summary-card">
       <h3>Success rate</h3>
-      <div style="font-size:20px; font-weight:700;">{{ success_rate }}%</div>
-      <div class="text-muted">{{ success_count }} succeeded • {{ failed_count }} failed</div>
+      <div style="font-size:20px; font-weight:700;">{{ payment_success_rate }}%</div>
+      <div class="text-muted">{{ payment_success_count }} ✓ • {{ payment_failed_count }} ✗</div>
     </div>
 
     <div class="summary-card">
       <h3>Pending</h3>
-      <div style="font-size:20px; font-weight:700;">{{ pending_count }}</div>
+      <div style="font-size:20px; font-weight:700;">{{ payment_pending_count }}</div>
       <div class="text-muted">Awaiting confirmation</div>
     </div>
   </div>
 
-  <div style="display:flex; gap:16px; margin-top:18px;">
-    <div style="flex:1;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2>Recent payments</h2>
-        <div class="quick-actions">
-          <a href="{% url 'payments:history' %}" class="btn-secondary">View history</a>
-          <a href="{% url 'market' %}" class="btn-primary">Buy now</a>
-        </div>
-      </div>
-
-      {% if recent_payments %}
-        <div class="recent-list">
-          {% for p in recent_payments %}
-            <div class="recent-item">
-              <div>
-                <div style="font-weight:700;">{{ p.amount|format_kes }}</div>
-                <div class="text-muted">{{ p.created_at|date:"M d, Y H:i" }} • {{ p.phone_number }}</div>
-              </div>
-              <div style="text-align:right; min-width:140px;">
-                <div class="badge {% if p.status == 'success' %}badge-success{% elif p.status == 'pending' %}badge-pending{% else %}badge-failed{% endif %}">{{ p.get_status_display }}</div>
-                <div style="margin-top:8px;"><a href="{% url 'payments:history_detail' p.id %}" class="btn-secondary">Details</a></div>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="text-muted">You have no recent payments.</p>
-      {% endif %}
+  <!-- BUY CRYPTO SECTION -->
+  <div style="display:flex; gap:16px; margin-top:20px; align-items:center;">
+    <h2 style="flex:1;">💰 Buy Crypto</h2>
+  </div>
+  <div class="dashboard-grid">
+    <div class="summary-card">
+      <h3>Total invested</h3>
+      <div style="font-size:20px; font-weight:700;">{{ buy_total_kes|format_kes }}</div>
+      <div class="text-muted">{{ buy_total_count }} buy orders</div>
     </div>
 
-    <div style="width:420px;">
-      <div class="chart-card">
-        <h3>Last 30 days</h3>
-        <!-- Responsive canvas: size controlled by CSS to avoid overstretching -->
-        <div class="chart-canvas-wrapper" style="width:100%;">
-          <canvas id="paymentsChart"></canvas>
-        </div>
+    <div class="summary-card">
+      <h3>Holdings</h3>
+      <div style="font-size:20px; font-weight:700;">
+        {% if crypto_holdings %}
+          {% for holding in crypto_holdings %}
+            {% if forloop.counter == 1 %}
+              {{ holding.total_held|floatformat:6 }} {{ holding.coin }}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          0.00 crypto
+        {% endif %}
       </div>
+      <div class="text-muted">Primary holding</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Completion rate</h3>
+      <div style="font-size:20px; font-weight:700;">{{ buy_completion_rate }}%</div>
+      <div class="text-muted">{{ buy_completed }} ✓ • {{ buy_pending }} pending</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Total crypto</h3>
+      <div style="font-size:20px; font-weight:700;">{{ buy_total_crypto|floatformat:6 }}</div>
+      <div class="text-muted">Accumulated amount</div>
+    </div>
+  </div>
+
+  <!-- SELL CRYPTO SECTION -->
+  <div style="display:flex; gap:16px; margin-top:20px; align-items:center;">
+    <h2 style="flex:1;">💸 Sell Crypto</h2>
+  </div>
+  <div class="dashboard-grid">
+    <div class="summary-card">
+      <h3>Total earned</h3>
+      <div style="font-size:20px; font-weight:700;">{{ sell_total_kes|format_kes }}</div>
+      <div class="text-muted">{{ sell_total_count }} sell orders</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Total disposed</h3>
+      <div style="font-size:20px; font-weight:700;">{{ sell_total_crypto|floatformat:6 }}</div>
+      <div class="text-muted">Crypto sold</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Completion rate</h3>
+      <div style="font-size:20px; font-weight:700;">{{ sell_completion_rate }}%</div>
+      <div class="text-muted">{{ sell_completed }} ✓ • {{ sell_pending }} pending</div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Avg per sale</h3>
+      <div style="font-size:20px; font-weight:700;">
+        {% if sell_total_count > 0 %}
+          {{ sell_total_kes|add:0|add:0|floatformat:0 }}
+        {% else %}
+          0
+        {% endif %}
+      </div>
+      <div class="text-muted">KES per order</div>
+    </div>
+  </div>
+
+  <!-- RECENT ACTIVITY SECTION -->
+  <div style="margin-top:24px;">
+    <h2>📊 Recent Activity</h2>
+    
+    <!-- Three-column layout for Recent Payments, Recent Buys, Recent Sells -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px; margin-top:12px;">
+      
+      <!-- Recent Payments -->
+      <div style="padding:16px; border-radius:12px; background:var(--color-surface); box-shadow:var(--shadow-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3>💳 Payments</h3>
+          <a href="{% url 'payments:history' %}" class="btn-secondary" style="font-size:12px; padding:6px 10px;">View</a>
+        </div>
+        {% if recent_payments %}
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            {% for p in recent_payments %}
+              <div style="padding:10px; border-radius:8px; background:#fff; border:1px solid rgba(15,23,42,0.03);">
+                <div style="display:flex; justify-content:space-between; gap:8px;">
+                  <div>
+                    <div style="font-weight:700; font-size:14px;">{{ p.amount|format_kes }}</div>
+                    <div style="font-size:11px; color:#999;">{{ p.created_at|date:"M d" }}</div>
+                  </div>
+                  <div class="badge {% if p.status == 'success' %}badge-success{% elif p.status == 'pending' %}badge-pending{% else %}badge-failed{% endif %}" style="font-size:11px;">{{ p.get_status_display }}</div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted" style="font-size:13px;">No payments yet</p>
+        {% endif %}
+      </div>
+
+      <!-- Recent Buys -->
+      <div style="padding:16px; border-radius:12px; background:var(--color-surface); box-shadow:var(--shadow-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3>💰 Buy Orders</h3>
+          <a href="{% url 'frontend:buy' %}" class="btn-primary" style="font-size:12px; padding:6px 10px;">Buy</a>
+        </div>
+        {% if recent_buys %}
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            {% for trade in recent_buys %}
+              <div style="padding:10px; border-radius:8px; background:#fff; border:1px solid rgba(15,23,42,0.03);">
+                <div style="display:flex; justify-content:space-between; gap:8px;">
+                  <div>
+                    <div style="font-weight:700; font-size:14px;">{{ trade.amount_kes|format_kes }}</div>
+                    <div style="font-size:11px; color:#999;">{{ trade.coin }} • {{ trade.created_at|date:"M d" }}</div>
+                  </div>
+                  <div class="badge {% if trade.status == 'completed' %}badge-success{% elif trade.status == 'pending' or trade.status == 'payment_confirmed' %}badge-pending{% else %}badge-failed{% endif %}" style="font-size:11px;">{{ trade.get_status_display }}</div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted" style="font-size:13px;">No buy orders yet</p>
+        {% endif %}
+      </div>
+
+      <!-- Recent Sells -->
+      <div style="padding:16px; border-radius:12px; background:var(--color-surface); box-shadow:var(--shadow-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3>💸 Sell Orders</h3>
+          <a href="{% url 'frontend:sell' %}" class="btn-primary" style="font-size:12px; padding:6px 10px;">Sell</a>
+        </div>
+        {% if recent_sells %}
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            {% for trade in recent_sells %}
+              <div style="padding:10px; border-radius:8px; background:#fff; border:1px solid rgba(15,23,42,0.03);">
+                <div style="display:flex; justify-content:space-between; gap:8px;">
+                  <div>
+                    <div style="font-weight:700; font-size:14px;">{{ trade.amount_kes|format_kes }}</div>
+                    <div style="font-size:11px; color:#999;">{{ trade.coin }} • {{ trade.created_at|date:"M d" }}</div>
+                  </div>
+                  <div class="badge {% if trade.status == 'completed' %}badge-success{% elif trade.status == 'pending' or trade.status == 'deposit_confirmed' %}badge-pending{% else %}badge-failed{% endif %}" style="font-size:11px;">{{ trade.get_status_display }}</div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted" style="font-size:13px;">No sell orders yet</p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div style="margin-top:24px; padding:16px; border-radius:12px; background:var(--color-surface); box-shadow:var(--shadow-card);">
+    <h3>📈 Last 30 days</h3>
+    <div class="chart-canvas-wrapper" style="width:100%; margin-top:12px;">
+      <canvas id="paymentsChart"></canvas>
     </div>
   </div>
 
   <div style="margin-top:20px;">
-    <h3>Recent activity</h3>
-    <table class="table-compact">
+    <table class="table-compact" style="display:none;">
       <thead>
         <tr><th>ID</th><th>Amount</th><th>Phone</th><th>Status</th><th>Date</th></tr>
       </thead>
